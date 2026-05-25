@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block body_class %}series-detail-page{% endblock %}
+{% block title %}{{ series.title }} - {{ t('app_name') }}{% endblock %}
+{% block content %}
+<section class="series-hero fade-in" {% if series.cover_image %}style="background-image: url('/media/{{ series.cover_image }}')"{% endif %}>
+    <div class="series-hero-content">
+        <a href="{{ url_for('streaming.index') }}" class="back-link">&larr; {{ t('back') }}</a>
+        <h1>{{ series.title }}</h1>
+        <p>{{ series.description }}</p>
+    </div>
+</section>
+
+{% for season in seasons %}
+<section class="season-block fade-in-up" style="animation-delay: {{ loop.index0 * 0.06 }}s">
+    <h2>{{ t('season') }} {{ season.season_number }} · {{ season.title }}</h2>
+    <div class="episodes-list">
+        {% for item in episodes_by_season[season.id] %}
+        {% set ep = item.episode %}
+        {% set status = item.status %}
+        <div class="episode-row">
+            <div class="episode-thumb">
+                {% set thumb = ep.display_thumbnail() %}
+                {% if thumb %}
+                <img src="/media/{{ thumb }}" alt="" loading="lazy">
+                {% else %}
+                <div class="ep-num">{{ loop.index }}</div>
+                {% endif %}
+            </div>
+            <div class="episode-info">
+                <h4>{{ ep.title }}</h4>
+                <p>{{ ep.description }}</p>
+                <span class="duration">{{ ep.duration_formatted }}</span>
+            </div>
+            <div class="episode-actions">
+                {% if status == 'free' %}
+                <span class="badge badge-free">{{ t('free') }}</span>
+                {% if current_user.is_authenticated %}
+                <a href="{{ url_for('streaming.watch', episode_id=ep.id) }}" class="btn btn-primary btn-glow">{{ t('watch_now') }}</a>
+                {% else %}
+                <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-glow">{{ t('watch_now') }}</a>
+                {% endif %}
+                {% elif status == 'purchased' %}
+                <span class="badge badge-purchased">{{ t('purchased') }}</span>
+                <a href="{{ url_for('streaming.watch', episode_id=ep.id) }}" class="btn btn-primary btn-glow">{{ t('watch_now') }}</a>
+                {% elif status == 'subscribed' %}
+                <span class="badge badge-sub">{{ t('subscribed') }}</span>
+                <a href="{{ url_for('streaming.watch', episode_id=ep.id) }}" class="btn btn-primary btn-glow">{{ t('watch_now') }}</a>
+                {% else %}
+                <span class="badge badge-locked">{{ t('locked') }} · ${{ "%.2f"|format(ep.price) }}</span>
+                {% if current_user.is_authenticated %}
+                <form method="post" action="{{ url_for('streaming.purchase', episode_id=ep.id) }}" class="inline-form">
+                    <button type="submit" class="btn btn-accent">{{ t('buy_episode') }}</button>
+                </form>
+                {% else %}
+                <a href="{{ url_for('auth.login') }}" class="btn btn-accent">{{ t('buy_episode') }}</a>
+                {% endif %}
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endfor %}
+{% endblock %}

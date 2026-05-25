@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}{% if episode %}{{ t('edit_episode') }}{% else %}{{ t('create_episode') }}{% endif %}{% endblock %}
+{% block content %}
+<section class="admin-page">
+    <h1>{% if episode %}{{ t('edit_episode') }}{% else %}{{ t('create_episode') }}{% endif %}</h1>
+
+    {% if not all_series %}
+    <div class="admin-alert admin-alert-warning fade-in">
+        <strong>{{ t('no_series_yet') }}</strong>
+        <p>{{ t('quick_setup_hint') }}</p>
+    </div>
+
+    <form class="admin-form admin-quick-setup fade-in-up" method="post" action="{{ url_for('streaming_admin.episode_quick_catalog') }}">
+        <h2>{{ t('quick_setup_title') }}</h2>
+        <label>{{ t('series') }}
+            <input type="text" name="series_title" required placeholder="{{ t('series_title_placeholder') }}">
+        </label>
+        <label>{{ t('season') }}
+            <input type="text" name="season_title" placeholder="{{ t('season_title_placeholder') }}" value="Temporada 1">
+        </label>
+        <button type="submit" class="btn btn-primary btn-glow">{{ t('create_and_continue') }}</button>
+    </form>
+
+    <p class="admin-or-divider">— o —</p>
+    <p><a href="{{ url_for('streaming_admin.series_form') }}" class="btn btn-outline">{{ t('create_series') }}</a></p>
+    {% endif %}
+
+    <form class="admin-form" method="post" enctype="multipart/form-data" id="episode-form" {% if not all_series %}style="opacity:0.5;pointer-events:none"{% endif %}>
+        <label class="field-label">{{ t('select_series') }}
+            <select name="series_id" id="series-select" required>
+                <option value="" disabled {% if not episode and not preselect_series_id %}selected{% endif %}>{{ t('select_series') }}</option>
+                {% for s in all_series %}
+                <option value="{{ s.id }}"
+                    {% if (episode and episode.series_id == s.id) or (preselect_series_id == s.id) %}selected{% endif %}>
+                    {{ s.title }}
+                </option>
+                {% endfor %}
+            </select>
+        </label>
+        <label class="field-label">{{ t('select_season') }}
+            <select name="season_id" id="season-select" required>
+                <option value="" disabled {% if not episode and not preselect_season_id %}selected{% endif %}>{{ t('select_season') }}</option>
+                {% for s in seasons %}
+                <option value="{{ s.id }}" data-series-id="{{ s.series_id }}"
+                    {% if (episode and episode.season_id == s.id) or (preselect_season_id == s.id) %}selected{% endif %}>
+                    {{ s.title }} (#{{ s.season_number }})
+                </option>
+                {% endfor %}
+            </select>
+        </label>
+        <p id="no-seasons-msg" class="admin-hint admin-hint-error" hidden>{{ t('no_seasons_for_series') }}
+            <a id="add-season-link" href="#">{{ t('add_season_link') }}</a>
+        </p>
+
+        <label>{{ t('title') }}<input type="text" name="title" value="{{ episode.title if episode else '' }}" required></label>
+        <label>{{ t('description') }}<textarea name="description" rows="3">{{ episode.description if episode else '' }}</textarea></label>
+        <label>{{ t('duration') }}<input type="number" name="duration_seconds" value="{{ episode.duration_seconds if episode else 0 }}" min="0"></label>
+        <label>{{ t('price') }}<input type="number" name="price" step="0.01" value="{{ episode.price if episode else 0 }}" min="0"></label>
+        <label>{{ t('video') }}<input type="file" name="video" accept="video/mp4,video/webm,video/ogg"></label>
+        <label>{{ t('thumbnail') }}<input type="file" name="thumbnail" accept="image/*"></label>
+        <p class="admin-hint">{{ t('episode_thumbnail_hint') }}</p>
+        <label class="checkbox"><input type="checkbox" name="is_free" {% if episode and episode.is_free %}checked{% endif %}> {{ t('is_free') }}</label>
+        <label class="checkbox"><input type="checkbox" name="is_active" {% if not episode or episode.is_active %}checked{% endif %}> {{ t('is_active') }}</label>
+        <p class="admin-hint">{{ t('is_active_hint') }}</p>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">{{ t('save') }}</button>
+            <a href="{{ url_for('streaming_admin.episodes_list') }}" class="btn btn-outline">{{ t('cancel') }}</a>
+        </div>
+    </form>
+</section>
+{% endblock %}
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin-episode.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}{{ t('admin') }} - {{ t('app_name') }}{% endblock %}
+{% block content %}
+<section class="admin-page">
+    <h1>{{ t('dashboard') }}</h1>
+    <div class="stats-grid">
+        <div class="stat-card"><span>{{ stats.series }}</span><small>{{ t('series') }}</small></div>
+        <div class="stat-card"><span>{{ stats.episodes }}</span><small>{{ t('episodes') }}</small></div>
+        <div class="stat-card"><span>{{ stats.purchases }}</span><small>{{ t('my_purchases') }}</small></div>
+        <div class="stat-card"><span>{{ stats.payments }}</span><small>{{ t('payments') }}</small></div>
+    </div>
+    <nav class="admin-nav">
+        <a href="{{ url_for('streaming_admin.series_list') }}" class="btn">{{ t('series') }}</a>
+        <a href="{{ url_for('streaming_admin.episodes_list') }}" class="btn">{{ t('episodes') }}</a>
+        <a href="{{ url_for('streaming_admin.payments_manage') }}" class="btn">{{ t('payments') }}</a>
+        <a href="{{ url_for('streaming.index') }}" class="btn btn-outline">{{ t('streaming') }}</a>
+    </nav>
+</section>
+{% endblock %}

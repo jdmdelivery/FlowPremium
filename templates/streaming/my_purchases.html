@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{{ t('my_purchases') }} - {{ t('app_name') }}{% endblock %}
+{% block content %}
+<section class="page-header fade-in">
+    <h1>{{ t('my_purchases') }}</h1>
+</section>
+
+{% if subscription and subscription.is_valid %}
+<div class="sub-banner fade-in-up">
+    <strong>{{ t('subscribed') }}</strong>
+    <span> — {{ subscription.expires_at.strftime('%Y-%m-%d') }}</span>
+</div>
+{% endif %}
+
+{% if purchases %}
+<div class="purchases-list">
+    {% for p in purchases %}
+    <div class="purchase-row fade-in-up" style="animation-delay: {{ loop.index0 * 0.05 }}s">
+        <div>
+            <h4>{{ p.episode.title }}</h4>
+            <small>{{ p.purchased_at.strftime('%Y-%m-%d %H:%M') }}</small>
+        </div>
+        <a href="{{ url_for('streaming.watch', episode_id=p.episode_id) }}" class="btn btn-primary btn-glow">{{ t('watch_now') }}</a>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p class="empty-state fade-in">{{ t('my_purchases') }} — 0</p>
+{% endif %}
+{% endblock %}

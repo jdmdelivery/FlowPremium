@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{{ t('seasons') }} - {{ series.title }}{% endblock %}
+{% block content %}
+<section class="admin-page">
+    <h1>{{ t('seasons') }}: {{ series.title }}</h1>
+    <form class="admin-form inline-form-block" method="post">
+        <h3>{{ t('create_season') }}</h3>
+        <label>{{ t('title') }}<input type="text" name="title" required></label>
+        <label>#<input type="number" name="season_number" value="1" min="1"></label>
+        <label>{{ t('description') }}<textarea name="description" rows="2"></textarea></label>
+        <label class="checkbox"><input type="checkbox" name="is_active" checked> {{ t('is_active') }}</label>
+        <button type="submit" class="btn btn-primary">{{ t('save') }}</button>
+    </form>
+    <table class="admin-table">
+        <thead><tr><th>#</th><th>{{ t('title') }}</th><th>{{ t('is_active') }}</th></tr></thead>
+        <tbody>
+        {% for s in seasons %}
+        <tr><td>{{ s.season_number }}</td><td>{{ s.title }}</td><td>{{ '✓' if s.is_active else '—' }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <a href="{{ url_for('streaming_admin.series_list') }}" class="back-link">&larr; {{ t('series') }}</a>
+</section>
+{% endblock %}

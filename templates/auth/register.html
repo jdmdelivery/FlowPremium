@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block body_class %}auth-layout{% endblock %}
+{% block nav %}{% endblock %}
+{% block main_class %}auth-main{% endblock %}
+{% block title %}{{ t('register') }} - {{ t('app_name') }}{% endblock %}
+{% block content %}
+<div class="auth-cinematic">
+    <div class="auth-cinematic-bg"></div>
+    <div class="auth-cinematic-overlay"></div>
+    <div class="auth-cinematic-vignette"></div>
+
+    <div class="auth-container fade-in-up">
+        <a href="{{ url_for('streaming.index') }}" class="auth-logo logo-neon">{{ t('app_name') }}</a>
+        <p class="auth-subtitle">{{ t('create_account_subtitle') }}</p>
+
+        <form class="auth-form auth-form-premium" method="post">
+            <h1>{{ t('register') }}</h1>
+            <div class="input-group">
+                <label for="username">{{ t('username') }}</label>
+                <input type="text" id="username" name="username" required autocomplete="username">
+            </div>
+            <div class="input-group">
+                <label for="email">{{ t('email') }}</label>
+                <input type="email" id="email" name="email" required autocomplete="email">
+            </div>
+            <div class="input-group">
+                <label for="password">{{ t('password') }}</label>
+                <input type="password" id="password" name="password" required minlength="6" autocomplete="new-password">
+            </div>
+            <button type="submit" class="btn btn-primary btn-glow btn-block">{{ t('register') }}</button>
+            <p class="auth-footer-link"><a href="{{ url_for('auth.login') }}">{{ t('login') }}</a></p>
+        </form>
+    </div>
+</div>
+{% endblock %}

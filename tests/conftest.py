@@ -1,0 +1,107 @@
+import os
+import tempfile
+
+import pytest
+
+from app import create_app
+from extensions import db
+from models.user import User
+from modules.streaming.models import Episode, Season, Series
+
+
+@pytest.fixture
+def app():
+    db_fd, db_path = tempfile.mkstemp(suffix=".db")
+    os.close(db_fd)
+
+    class TestConfig:
+        TESTING = True
+        SECRET_KEY = "test-secret"
+        SQLALCHEMY_DATABASE_URI = f"sqlite:///{db_path}"
+        SQLALCHEMY_TRACK_MODIFICATIONS = False
+        UPLOAD_FOLDER = tempfile.mkdtemp()
+        VIDEO_FOLDER = os.path.join(UPLOAD_FOLDER, "videos")
+        THUMBNAIL_FOLDER = os.path.join(UPLOAD_FOLDER, "covers")
+        SERIES_COVER_FOLDER = os.path.join(UPLOAD_FOLDER, "series")
+        ALLOWED_VIDEO_EXTENSIONS = {"mp4", "webm", "ogg"}
+        ALLOWED_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}
+        DEFAULT_LOCALE = "es"
+        SUPPORTED_LOCALES = ("es", "en")
+        STRIPE_SECRET_KEY = ""
+        PAYPAL_CLIENT_ID = ""
+
+    application = create_app(TestConfig)
+
+    with application.app_context():
+        import modules.streaming.models  # noqa: F401
+        db.create_all()
+        admin = User(email="admin@test.com", username="admin", is_admin=True)
+        admin.set_password("admin123")
+        user = User(email="user@test.com", username="user", is_admin=False)
+        user.set_password("user123")
+        db.session.add_all([admin, user])
+        db.session.commit()
+
+    yield application
+
+    with application.app_context():
+        db.session.remove()
+        db.drop_all()
+    try:
+        os.unlink(db_path)
+    except OSError:
+        pass
+
+
+@pytest.fixture
+def client(app):
+    return app.test_client()
+
+
+@pytest.fixture
+def admin_client(app, client):
+    client.post("/login", data={"email": "admin@test.com", "password": "admin123"})
+    return client
+
+
+@pytest.fixture
+def user_client(app, client):
+    client.post("/login", data={"email": "user@test.com", "password": "user123"})
+    return client
+
+
+@pytest.fixture
+def sample_content(app):
+    with app.app_context():
+        series = Series(title="Test Series", description="Desc", is_active=True)
+        db.session.add(series)
+        db.session.flush()
+        season = Season(series_id=series.id, title="Season 1", season_number=1, is_active=True)
+        db.session.add(season)
+        db.session.flush()
+
+        free_ep = Episode(
+            series_id=series.id,
+            season_id=season.id,
+            title="Free Episode",
+            is_free=True,
+            is_active=True,
+            price=0,
+        )
+        premium_ep = Episode(
+            series_id=series.id,
+            season_id=season.id,
+            title="Premium Episode",
+            is_free=False,
+            is_active=True,
+            price=9.99,
+            video_path="storage/streaming/videos/test.mp4",
+        )
+        db.session.add_all([free_ep, premium_ep])
+        db.session.commit()
+        return {
+            "series_id": series.id,
+            "season_id": season.id,
+            "free_episode_id": free_ep.id,
+            "premium_episode_id": premium_ep.id,
+        }

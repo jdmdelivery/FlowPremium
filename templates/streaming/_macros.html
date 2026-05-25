@@ -1,0 +1,67 @@
+{% macro series_card(item) %}
+<a href="{{ url_for('streaming.series_detail', series_id=item.series.id) }}" class="premium-card fade-in-up">
+    <div class="premium-card-cover">
+        {% if item.series.cover_image %}
+        <img src="/media/{{ item.series.cover_image }}" alt="{{ item.series.title }}" loading="lazy">
+        {% else %}
+        <div class="placeholder-cover">{{ item.series.title[0] }}</div>
+        {% endif %}
+        <div class="premium-card-gradient"></div>
+        <div class="premium-card-hover-info">
+            <span class="card-play-icon">&#9654;</span>
+            {% if item.badge == 'free' %}
+            <span class="card-badge card-badge-free">{{ t('free') }}</span>
+            {% elif item.badge == 'premium' %}
+            <span class="card-badge card-badge-premium">{{ t('locked') }}</span>
+            {% else %}
+            <span class="card-badge card-badge-mixed">{{ t('free') }} + {{ t('locked') }}</span>
+            {% endif %}
+        </div>
+    </div>
+    <div class="premium-card-meta">
+        <h3>{{ item.series.title }}</h3>
+        <p>{{ item.episode_count }} {{ t('episodes') }}</p>
+    </div>
+</a>
+{% endmacro %}
+
+{% macro continue_card(item) %}
+<a href="{{ url_for('streaming.watch', episode_id=item.episode.id) }}" class="continue-card fade-in-up">
+    <div class="continue-card-cover">
+        {% if item.episode.thumbnail %}
+        <img src="/media/{{ item.episode.thumbnail }}" alt="{{ item.episode.title }}" loading="lazy">
+        {% elif item.series.cover_image %}
+        <img src="/media/{{ item.series.cover_image }}" alt="{{ item.episode.title }}" loading="lazy">
+        {% else %}
+        <div class="placeholder-cover">{{ item.episode.title[0] }}</div>
+        {% endif %}
+        <div class="continue-progress" style="width: {{ item.progress_pct }}%"></div>
+        <div class="continue-overlay">
+            <span class="card-play-icon">&#9654;</span>
+        </div>
+    </div>
+    <div class="continue-card-meta">
+        <h4>{{ item.episode.title }}</h4>
+        <p>{{ item.series.title }}</p>
+    </div>
+</a>
+{% endmacro %}
+
+{% macro content_row(title, items, card_type='series') %}
+{% if items %}
+<section class="content-row fade-in">
+    <h2 class="row-title">{{ title }}</h2>
+    <div class="row-scroll-wrap">
+        <button type="button" class="row-arrow row-arrow-left" aria-label="Scroll left">&#8249;</button>
+        <div class="row-track">
+            {% if card_type == 'continue' %}
+                {% for item in items %}{{ continue_card(item) }}{% endfor %}
+            {% else %}
+                {% for item in items %}{{ series_card(item) }}{% endfor %}
+            {% endif %}
+        </div>
+        <button type="button" class="row-arrow row-arrow-right" aria-label="Scroll right">&#8250;</button>
+    </div>
+</section>
+{% endif %}
+{% endmacro %}

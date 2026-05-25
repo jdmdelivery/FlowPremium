@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block body_class %}watch-layout{% endblock %}
+{% block main_class %}watch-main{% endblock %}
+{% block title %}{{ episode.title }} - {{ t('app_name') }}{% endblock %}
+
+{% block content %}
+<div class="cinema-page">
+    <div class="cinema-topbar fade-in">
+        <a href="{{ url_for('streaming.series_detail', series_id=episode.series_id) }}" class="cinema-back">&larr; {{ episode.series.title if episode.series else t('back') }}</a>
+        <div class="cinema-episode-info">
+            <span class="cinema-label">{{ t('episode') }}</span>
+            <h1>{{ episode.title }}</h1>
+        </div>
+    </div>
+
+    <div class="cinema-player-stage fade-in-up" id="player-wrapper"
+         data-stream-url="{{ stream_url }}"
+         data-progress-url="{{ progress_url }}"
+         data-episode-id="{{ episode.id }}"
+         data-start="{{ progress.position_seconds if progress else 0 }}"
+         data-next-url="{% if next_episode %}{{ url_for('streaming.watch', episode_id=next_episode.id) }}{% endif %}"
+         data-next-title="{{ next_episode.title if next_episode else '' }}">
+
+        <video id="video-player" playsinline webkit-playsinline></video>
+
+        <div class="cinema-controls" id="cinema-controls">
+            <div class="cinema-progress-wrap">
+                <input type="range" id="progress-bar" min="0" max="100" value="0" step="0.1">
+            </div>
+            <div class="cinema-controls-row">
+                <div class="cinema-controls-left">
+                    <button type="button" id="btn-play" class="cinema-btn" aria-label="Play">&#9654;</button>
+                    <div class="cinema-time">
+                        <span id="time-current">0:00</span>
+                        <span class="time-sep">/</span>
+                        <span id="time-duration">0:00</span>
+                        <span class="time-remaining" id="time-remaining"> · {{ t('time_remaining') }} 0:00</span>
+                    </div>
+                </div>
+                <div class="cinema-controls-right">
+                    <button type="button" id="btn-fullscreen" class="cinema-btn" aria-label="Fullscreen">&#9974;</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="cinema-loading" id="cinema-loading">
+            <div class="cinema-spinner"></div>
+        </div>
+    </div>
+
+    {% if next_episode %}
+    <div class="cinema-next fade-in">
+        <div class="cinema-next-label">{{ t('next_episode') }}</div>
+        <a href="{{ url_for('streaming.watch', episode_id=next_episode.id) }}" class="cinema-next-card">
+            <span class="cinema-next-title">{{ next_episode.title }}</span>
+            <span class="cinema-next-arrow">&#8250;</span>
+        </a>
+    </div>
+    {% endif %}
+
+    {% if episode.description %}
+    <p class="cinema-desc fade-in">{{ episode.description }}</p>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/player.js') }}"></script>
+{% endblock %}

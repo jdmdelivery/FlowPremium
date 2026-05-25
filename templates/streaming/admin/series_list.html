@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ t('series') }} - {{ t('admin') }}{% endblock %}
+{% block content %}
+<section class="admin-page">
+    <div class="admin-header">
+        <h1>{{ t('series') }}</h1>
+        <a href="{{ url_for('streaming_admin.series_form') }}" class="btn btn-primary">{{ t('create_series') }}</a>
+    </div>
+    <table class="admin-table">
+        <thead><tr><th>ID</th><th>{{ t('title') }}</th><th>{{ t('is_active') }}</th><th>{{ t('actions') }}</th></tr></thead>
+        <tbody>
+        {% for s in series_list %}
+        <tr>
+            <td>{{ s.id }}</td>
+            <td>{{ s.title }}</td>
+            <td>{{ '✓' if s.is_active else '—' }}</td>
+            <td class="admin-actions-cell">
+                <a href="{{ url_for('streaming_admin.series_form', series_id=s.id) }}" class="btn btn-sm btn-outline">{{ t('edit_series') }}</a>
+                <a href="{{ url_for('streaming_admin.seasons_manage', series_id=s.id) }}" class="btn btn-sm btn-outline">{{ t('seasons') }}</a>
+                <form method="post"
+                      action="{{ url_for('streaming_admin.series_delete', series_id=s.id) }}"
+                      class="inline-form delete-series-form"
+                      data-confirm="{{ t('delete_series_confirm') }}">
+                    <button type="submit" class="btn btn-sm btn-danger">🗑️ {{ t('delete_series') }}</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <a href="{{ url_for('streaming_admin.dashboard') }}" class="back-link">&larr; {{ t('dashboard') }}</a>
+</section>
+{% endblock %}
+{% block extra_js %}
+<script>
+document.querySelectorAll('.delete-series-form').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+        var msg = form.getAttribute('data-confirm') || 'Are you sure?';
+        if (!window.confirm(msg)) {
+            e.preventDefault();
+        }
+    });
+});
+</script>
+{% endblock %}

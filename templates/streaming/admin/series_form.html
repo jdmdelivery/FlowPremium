@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{% if series %}{{ t('edit_series') }}{% else %}{{ t('create_series') }}{% endif %}{% endblock %}
+{% block content %}
+<section class="admin-page">
+    <h1>{% if series %}{{ t('edit_series') }}{% else %}{{ t('create_series') }}{% endif %}</h1>
+    <form class="admin-form" method="post" enctype="multipart/form-data">
+        <label>{{ t('title') }}<input type="text" name="title" value="{{ series.title if series else '' }}" required></label>
+        <label>{{ t('description') }}<textarea name="description" rows="4">{{ series.description if series else '' }}</textarea></label>
+        <label>{{ t('cover_image') }}<input type="file" name="cover_image" accept="image/*"></label>
+        <p class="admin-hint">{{ t('series_cover_hint') }}</p>
+        {% if series and series.cover_image %}
+        <div class="series-cover-preview">
+            <img src="/media/{{ series.cover_image }}" alt="{{ series.title }}">
+            <p><small>{{ series.cover_image }}</small></p>
+        </div>
+        {% endif %}
+        <label class="checkbox"><input type="checkbox" name="is_active" {% if not series or series.is_active %}checked{% endif %}> {{ t('is_active') }}</label>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">{{ t('save') }}</button>
+            <a href="{{ url_for('streaming_admin.series_list') }}" class="btn btn-outline">{{ t('cancel') }}</a>
+        </div>
+    </form>
+</section>
+{% endblock %}

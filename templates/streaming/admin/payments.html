@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}{{ t('payments') }} - {{ t('admin') }}{% endblock %}
+{% block content %}
+<section class="admin-page">
+    <h1>{{ t('payments') }}</h1>
+
+    <div class="admin-grant-forms">
+        <form method="post" class="admin-form inline-form-block">
+            <input type="hidden" name="action" value="grant_episode">
+            <h3>{{ t('grant_purchase') }}</h3>
+            <label>{{ t('username') }}
+                <select name="user_id" required>
+                    {% for u in users %}<option value="{{ u.id }}">{{ u.username }} ({{ u.email }})</option>{% endfor %}
+                </select>
+            </label>
+            <label>{{ t('episode') }}
+                <select name="episode_id" required>
+                    {% for ep in episodes %}<option value="{{ ep.id }}">{{ ep.title }}</option>{% endfor %}
+                </select>
+            </label>
+            <button type="submit" class="btn btn-accent">{{ t('grant_purchase') }}</button>
+        </form>
+
+        <form method="post" class="admin-form inline-form-block">
+            <input type="hidden" name="action" value="grant_subscription">
+            <h3>{{ t('grant_subscription') }}</h3>
+            <label>{{ t('username') }}
+                <select name="user_id" required>
+                    {% for u in users %}<option value="{{ u.id }}">{{ u.username }}</option>{% endfor %}
+                </select>
+            </label>
+            <label>Días / Days<input type="number" name="days" value="30" min="1"></label>
+            <button type="submit" class="btn btn-accent">{{ t('grant_subscription') }}</button>
+        </form>
+    </div>
+
+    <h2>{{ t('user_purchases') }}</h2>
+    <table class="admin-table">
+        <thead><tr><th>User</th><th>Episode</th><th>Date</th></tr></thead>
+        <tbody>
+        {% for p in purchases %}
+        <tr><td>{{ p.user.username }}</td><td>{{ p.episode.title }}</td><td>{{ p.purchased_at }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <h2>{{ t('payments') }}</h2>
+    <table class="admin-table">
+        <thead><tr><th>ID</th><th>User</th><th>Amount</th><th>Type</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for pay in payments %}
+        <tr><td>{{ pay.id }}</td><td>{{ pay.user.username }}</td><td>${{ pay.amount }}</td><td>{{ pay.payment_type }}</td><td>{{ pay.status }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <a href="{{ url_for('streaming_admin.dashboard') }}" class="back-link">&larr; {{ t('dashboard') }}</a>
+</section>
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ t('episodes') }} - {{ t('admin') }}{% endblock %}
+{% block content %}
+<section class="admin-page">
+    <div class="admin-header">
+        <h1>{{ t('episodes') }}</h1>
+        <a href="{{ url_for('streaming_admin.episode_form') }}" class="btn btn-primary">{{ t('create_episode') }}</a>
+    </div>
+    <table class="admin-table">
+        <thead><tr><th>ID</th><th>{{ t('title') }}</th><th>{{ t('price') }}</th><th>{{ t('free') }}</th><th>{{ t('is_active') }}</th><th>{{ t('actions') }}</th></tr></thead>
+        <tbody>
+        {% for ep in episodes %}
+        <tr>
+            <td>{{ ep.id }}</td>
+            <td>{{ ep.title }}</td>
+            <td>${{ "%.2f"|format(ep.price) }}</td>
+            <td>{{ '✓' if ep.is_free else '—' }}</td>
+            <td>{{ '✓' if ep.is_active else '—' }}</td>
+            <td class="admin-actions-cell">
+                <a href="{{ url_for('streaming_admin.episode_form', episode_id=ep.id) }}" class="btn btn-sm btn-outline">{{ t('edit_episode') }}</a>
+                <form method="post"
+                      action="{{ url_for('streaming_admin.episode_delete', episode_id=ep.id) }}"
+                      class="inline-form delete-episode-form"
+                      data-confirm="{{ t('delete_video_confirm') }}">
+                    <button type="submit" class="btn btn-sm btn-danger">🗑️ {{ t('delete_video') }}</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <a href="{{ url_for('streaming_admin.dashboard') }}" class="back-link">&larr; {{ t('dashboard') }}</a>
+</section>
+{% endblock %}
+{% block extra_js %}
+<script>
+document.querySelectorAll('.delete-episode-form').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+        var msg = form.getAttribute('data-confirm') || 'Are you sure?';
+        if (!window.confirm(msg)) {
+            e.preventDefault();
+        }
+    });
+});
+</script>
+{% endblock %}

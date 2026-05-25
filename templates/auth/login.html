@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block body_class %}auth-layout{% endblock %}
+{% block nav %}{% endblock %}
+{% block main_class %}auth-main{% endblock %}
+{% block title %}{{ t('login') }} - {{ t('app_name') }}{% endblock %}
+{% block content %}
+<div class="auth-cinematic">
+    <div class="auth-cinematic-bg"></div>
+    <div class="auth-cinematic-overlay"></div>
+    <div class="auth-cinematic-vignette"></div>
+
+    <div class="auth-container fade-in-up">
+        <a href="{{ url_for('streaming.index') }}" class="auth-logo logo-neon">{{ t('app_name') }}</a>
+        <p class="auth-subtitle">{{ t('sign_in_subtitle') }}</p>
+
+        <form class="auth-form auth-form-premium" method="post">
+            <h1>{{ t('welcome_back') }}</h1>
+            <div class="input-group">
+                <label for="email">{{ t('email_or_user') }}</label>
+                <input type="text" id="email" name="email" required placeholder="admin o manager" autocomplete="username">
+            </div>
+            <div class="input-group">
+                <label for="password">{{ t('password') }}</label>
+                <input type="password" id="password" name="password" required placeholder="********" autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn btn-primary btn-glow btn-block">{{ t('login') }}</button>
+            <p class="auth-footer-link"><a href="{{ url_for('auth.register') }}">{{ t('register') }}</a></p>
+        </form>
+    </div>
+</div>
+{% endblock %}
