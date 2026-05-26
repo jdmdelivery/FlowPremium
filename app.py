@@ -5,7 +5,7 @@ from flask import Flask, redirect, request, session, url_for
 
 from config import get_config_class, validate_production_config
 from extensions import db, login_manager
-from models.user import User
+from models import get_user_by_id
 
 
 def ensure_database(app: Flask) -> None:
@@ -55,7 +55,7 @@ def create_app(config_class=None):
 
     @login_manager.user_loader
     def load_user(user_id):
-        return db.session.get(User, int(user_id))
+        return get_user_by_id(user_id)
 
     from routes.auth import auth_bp
     from modules.streaming.routes.public import streaming_bp

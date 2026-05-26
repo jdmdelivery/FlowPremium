@@ -27,3 +27,13 @@ class User(UserMixin, db.Model):
 
     def check_password(self, password: str) -> bool:
         return check_password_hash(self.password_hash, password)
+
+
+def get_user_by_id(user_id):
+    """Flask-Login user_loader helper."""
+    if user_id is None:
+        return None
+    try:
+        return db.session.get(User, int(user_id))
+    except (TypeError, ValueError):
+        return None
