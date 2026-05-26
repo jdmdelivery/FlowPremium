@@ -1,15 +1,9 @@
-# Blueprint para Render: https://render.com/docs/blueprint-spec
-# Conecta el repo y usa "New > Blueprint" o crea Web Service + Postgres manualmente.
-
-databases:
-  - name: streaming-db
-    plan: free
-    databaseName: streaming
-    user: streaming
+# Blueprint Render — SQLite por defecto (sin Postgres).
+# Para PostgreSQL más adelante: crea una DB en Render y define DATABASE_URL.
 
 services:
   - type: web
-    name: peliculas-streaming
+    name: flowpremium
     runtime: python
     plan: free
     buildCommand: pip install --upgrade pip && pip install -r requirements.txt
@@ -29,11 +23,7 @@ services:
         value: "true"
       - key: SECRET_KEY
         generateValue: true
-      - key: DATABASE_URL
-        fromDatabase:
-          name: streaming-db
-          property: connectionString
     disk:
-      name: streaming-uploads
-      mountPath: /opt/render/project/src/storage
-      sizeGB: 10
+      name: flowpremium-data
+      mountPath: /opt/render/project/src
+      sizeGB: 1

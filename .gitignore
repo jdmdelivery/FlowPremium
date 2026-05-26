@@ -47,6 +47,8 @@ storage/streaming/series/**
 *.db
 *.sqlite
 *.sqlite3
+flowpremium.db
+streaming.db
 
 # Logs
 logs/

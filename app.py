@@ -1,11 +1,25 @@
 import os
 from pathlib import Path
 
-from flask import Flask, jsonify, redirect, request, session, url_for
+from flask import Flask, redirect, request, session, url_for
 
 from config import get_config_class, validate_production_config
 from extensions import db, login_manager
 from models.user import User
+
+
+def ensure_database(app: Flask) -> None:
+    """Create SQLite/Postgres tables if they do not exist yet."""
+    import modules.streaming.models  # noqa: F401
+
+    db.create_all()
+    if app.config.get("TESTING"):
+        return
+    seed = os.environ.get("SEED_DEFAULT_USERS", "true").lower() in ("1", "true", "yes")
+    if seed:
+        from utils.seed_users import ensure_default_users
+
+        ensure_default_users()
 
 
 def create_app(config_class=None):
@@ -16,6 +30,16 @@ def create_app(config_class=None):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
+    # DATABASE_URL optional: PostgreSQL if set, else sqlite:///flowpremium.db
+    if not app.config.get("TESTING"):
+        db_url = os.environ.get("DATABASE_URL")
+        if db_url and db_url.lower() not in ("null", "none", ""):
+            from config import _normalize_database_url
+
+            app.config["SQLALCHEMY_DATABASE_URI"] = _normalize_database_url(db_url)
+        else:
+            app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///flowpremium.db"
+
     for folder in (
         app.config["VIDEO_FOLDER"],
         app.config["THUMBNAIL_FOLDER"],
@@ -25,6 +49,9 @@ def create_app(config_class=None):
 
     db.init_app(app)
     login_manager.init_app(app)
+
+    with app.app_context():
+        ensure_database(app)
 
     @login_manager.user_loader
     def load_user(user_id):
@@ -46,7 +73,7 @@ def create_app(config_class=None):
 
     @app.route("/health")
     def health():
-        return jsonify({"status": "ok"}), 200
+        return {"status": "ok"}
 
     @app.route("/set-locale/<locale>")
     def set_locale(locale):
@@ -77,14 +104,8 @@ def create_app(config_class=None):
 
     @app.cli.command("init-db")
     def init_db():
-        import modules.streaming.models  # noqa: F401
-        from utils.seed_users import ensure_default_users
-
-        db.create_all()
-        seed = os.environ.get("SEED_DEFAULT_USERS", "true").lower() in ("1", "true", "yes")
-        if seed:
-            for line in ensure_default_users():
-                print(line)
+        with app.app_context():
+            ensure_database(app)
         print("Database initialized.")
 
     return app
@@ -93,12 +114,6 @@ def create_app(config_class=None):
 app = create_app()
 
 if __name__ == "__main__":
-    with app.app_context():
-        import modules.streaming.models  # noqa: F401
-        from utils.seed_users import ensure_default_users
-
-        db.create_all()
-        ensure_default_users()
     debug = os.environ.get("FLASK_DEBUG", "1").lower() in ("1", "true", "yes")
     port = int(os.environ.get("PORT", 5000))
     app.run(debug=debug, host="0.0.0.0", port=port)

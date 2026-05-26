@@ -1,15 +1,25 @@
 # Despliegue en Render
 
+## SQLite (por defecto, sin Postgres)
+
+La app usa **SQLite** (`flowpremium.db`) si no defines `DATABASE_URL`. Ideal para el plan free sin base de datos externa.
+
+> Monta un **disco persistente** en `/opt/render/project/src` para que `flowpremium.db` y los uploads no se borren en cada deploy.
+
 ## Opción A: Blueprint (recomendado)
 
-1. Sube el proyecto a **GitHub** (sin `.env`, sin `streaming.db`).
+1. Sube el proyecto a **GitHub** (sin `.env`, sin `*.db`).
 2. En [Render](https://render.com) → **New** → **Blueprint** → conecta el repo.
-3. Render crea la base PostgreSQL, el Web Service, el disco persistente y las variables.
+3. Render crea el Web Service con disco y `SECRET_KEY` automático.
+
+## PostgreSQL (opcional, futuro)
+
+1. Crea **PostgreSQL** en Render y añade `DATABASE_URL` al Web Service.
+2. La app detectará la URL y dejará de usar SQLite.
 
 ## Opción B: Manual
 
-1. **PostgreSQL** → New Database → copia `Internal Database URL`.
-2. **Web Service** → New → Python:
+1. **Web Service** → New → Python:
    - **Build:** `pip install --upgrade pip && pip install -r requirements.txt`
    - **Start:** `gunicorn --bind 0.0.0.0:$PORT --workers 2 --threads 2 --timeout 120 app:app`
    - **Release:** `flask init-db`
@@ -18,9 +28,9 @@
    - `FLASK_ENV=production`
    - `FLASK_APP=app.py`
    - `SECRET_KEY` → Generate
-   - `DATABASE_URL` → URL de Postgres (Render la ajusta a `postgresql://`)
    - `STORAGE_PATH=/opt/render/project/src/storage/streaming`
-4. **Disk** (10 GB): mount `/opt/render/project/src/storage` para que videos y portadas no se borren al redeploy.
+   - `DATABASE_URL` → *(opcional)* solo si usas Postgres
+4. **Disk** (1+ GB): mount `/opt/render/project/src` para `flowpremium.db`, videos y portadas.
 
 ## Después del deploy
 

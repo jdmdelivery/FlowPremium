@@ -4,6 +4,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent
 
 _DEV_SECRET = "dev-streaming-secret-change-in-production"
+_SQLITE_PATH = BASE_DIR / "flowpremium.db"
 
 
 def _normalize_database_url(url: str) -> str:
@@ -13,11 +14,14 @@ def _normalize_database_url(url: str) -> str:
     return url
 
 
-def _database_uri() -> str:
+def get_database_uri() -> str:
+    """
+    PostgreSQL when DATABASE_URL is set; otherwise SQLite (local + Render free).
+    """
     url = os.environ.get("DATABASE_URL")
     if url and url.lower() not in ("null", "none", ""):
         return _normalize_database_url(url)
-    return f"sqlite:///{BASE_DIR / 'streaming.db'}"
+    return f"sqlite:///{_SQLITE_PATH}"
 
 
 def _storage_root() -> Path:
@@ -28,13 +32,20 @@ def _storage_root() -> Path:
     return BASE_DIR / "storage" / "streaming"
 
 
+def _engine_options(uri: str) -> dict:
+    if uri.startswith("sqlite"):
+        return {"connect_args": {"check_same_thread": False}}
+    return {"pool_pre_ping": True}
+
+
+_db_uri = get_database_uri()
+
+
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", _DEV_SECRET)
-    SQLALCHEMY_DATABASE_URI = _database_uri()
+    SQLALCHEMY_DATABASE_URI = _db_uri
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_ENGINE_OPTIONS = {
-        "pool_pre_ping": True,
-    }
+    SQLALCHEMY_ENGINE_OPTIONS = _engine_options(_db_uri)
 
     UPLOAD_FOLDER = _storage_root()
     VIDEO_FOLDER = UPLOAD_FOLDER / "videos"
@@ -72,14 +83,10 @@ def get_config_class():
 
 
 def validate_production_config(config_class) -> None:
-    """Fail fast on Render if required secrets are missing."""
+    """Only SECRET_KEY is required in production; DATABASE_URL is optional."""
     if config_class is not ProductionConfig:
         return
     if config_class.SECRET_KEY == _DEV_SECRET:
         raise RuntimeError(
             "SECRET_KEY must be set in production. Add it in Render Environment."
-        )
-    if config_class.SQLALCHEMY_DATABASE_URI.startswith("sqlite"):
-        raise RuntimeError(
-            "Use PostgreSQL on Render: link a Postgres database and set DATABASE_URL."
         )
