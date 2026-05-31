@@ -27,6 +27,14 @@ def save_video(file: FileStorage, series_id: int | None = None) -> str:
     if not _allowed(file.filename, current_app.config["ALLOWED_VIDEO_EXTENSIONS"]):
         raise ValueError("Invalid video format. Allowed: mp4, webm, ogg")
 
+    max_size = current_app.config.get("MAX_VIDEO_SIZE", 500 * 1024 * 1024)
+    file.seek(0, 2)
+    size = file.tell()
+    file.seek(0)
+    if size > max_size:
+        mb = max_size // (1024 * 1024)
+        raise ValueError(f"Video too large. Maximum size is {mb} MB on this server.")
+
     folder = Path(current_app.config["VIDEO_FOLDER"])
     if series_id:
         folder = folder / str(series_id)

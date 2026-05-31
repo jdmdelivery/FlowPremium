@@ -52,8 +52,12 @@ class Config:
     THUMBNAIL_FOLDER = UPLOAD_FOLDER / "covers"
     SERIES_COVER_FOLDER = UPLOAD_FOLDER / "series"
 
-    MAX_VIDEO_SIZE = int(os.environ.get("MAX_VIDEO_SIZE", 500 * 1024 * 1024))
+    _on_render = os.environ.get("RENDER", "").lower() in ("true", "1", "yes")
+    _default_video_mb = 100 if _on_render else 500
+    MAX_VIDEO_SIZE = int(os.environ.get("MAX_VIDEO_SIZE", _default_video_mb * 1024 * 1024))
     MAX_IMAGE_SIZE = int(os.environ.get("MAX_IMAGE_SIZE", 10 * 1024 * 1024))
+    # Flask rejects oversized uploads before the worker hangs on multipart read.
+    MAX_CONTENT_LENGTH = MAX_VIDEO_SIZE + (8 * 1024 * 1024)
 
     ALLOWED_VIDEO_EXTENSIONS = {"mp4", "webm", "ogg"}
     ALLOWED_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}

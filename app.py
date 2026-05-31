@@ -107,6 +107,22 @@ def create_app(config_class=None):
     from utils.i18n import t as translate_fn
     app.jinja_env.globals["t"] = translate_fn
 
+    @app.errorhandler(413)
+    def request_entity_too_large(_error):
+        from flask import flash, redirect, url_for
+
+        max_mb = app.config.get("MAX_VIDEO_SIZE", 0) // (1024 * 1024)
+        flash(
+            f"Archivo demasiado grande / File too large (max {max_mb} MB on this server).",
+            "error",
+        )
+        return redirect(request.referrer or url_for("streaming_admin.episodes_list"))
+
+    @app.context_processor
+    def inject_upload_limits():
+        max_bytes = app.config.get("MAX_VIDEO_SIZE", 500 * 1024 * 1024)
+        return {"max_video_mb": max(1, max_bytes // (1024 * 1024))}
+
     @app.cli.command("init-db")
     def init_db():
         with app.app_context():
