@@ -118,6 +118,16 @@ def save_episode_thumbnail(file: FileStorage, series_id: int | None = None) -> s
     return save_image(file, kind="thumbnail", entity_id=series_id)
 
 
+def save_payment_screenshot(file: FileStorage, payment_id: int | None = None) -> str:
+    if not file or not file.filename:
+        raise ValueError("No screenshot provided")
+    if use_r2_storage():
+        from modules.storage.storage_r2 import upload_payment_screenshot
+
+        return upload_payment_screenshot(file, payment_id=payment_id)
+    return save_image(file, kind="payment", entity_id=payment_id)
+
+
 def save_video(file: FileStorage, series_id: int | None = None) -> str:
     if must_use_r2_storage():
         raise ValueError("Los videos no se guardan en el servidor. Usa Cloudflare R2.")
@@ -163,6 +173,10 @@ def save_image(
         if must_use_r2_storage():
             raise ValueError("Las miniaturas de episodio deben subirse a Cloudflare R2.")
         folder = Path(current_app.config["THUMBNAIL_FOLDER"])
+        if entity_id:
+            folder = folder / str(entity_id)
+    elif kind == "payment":
+        folder = Path(current_app.config["UPLOAD_FOLDER"]) / "payments"
         if entity_id:
             folder = folder / str(entity_id)
     else:

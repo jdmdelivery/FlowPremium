@@ -10,6 +10,7 @@ from flask_login import current_user
 from extensions import db
 from modules.payments.services.billing import (
     cancel_payment,
+    cashapp_payments,
     create_pending_payment,
     get_plan_catalog,
     mark_payment_paid,
@@ -26,7 +27,7 @@ from modules.payments.services.paypal_service import (
     verify_paypal_connection,
 )
 from modules.payments.services.square_service import charge_square_payment, is_square_configured, public_config
-from modules.streaming.models import Payment
+from modules.streaming.models import Episode, Payment
 from utils.auth import admin_required
 
 logger = logging.getLogger(__name__)
@@ -246,6 +247,75 @@ def admin_payments():
         paid_count=Payment.query.filter_by(status="paid").count(),
         failed_count=Payment.query.filter_by(status="failed").count(),
     )
+
+
+@payments_bp.route("/admin/payments/cashapp")
+@admin_required
+def admin_cashapp_payments():
+    from utils.media import media_url
+
+    status_filter = request.args.get("status", "pending")
+    payments = cashapp_payments(status_filter if status_filter != "all" else None)
+    rows = []
+    for pay in payments:
+        episode_title = None
+        if pay.payment_type == "episode" and pay.reference_id:
+            ep = db.session.get(Episode, int(pay.reference_id))
+            episode_title = ep.title if ep else None
+        rows.append(
+            {
+                "payment": pay,
+                "episode_title": episode_title,
+                "screenshot_url": media_url(pay.screenshot_url) if pay.screenshot_url else None,
+            }
+        )
+    return render_template(
+        "payments/cashapp_admin.html",
+        rows=rows,
+        status_filter=status_filter,
+        pending_count=Payment.query.filter_by(method="cashapp_manual", status="pending").count(),
+    )
+
+
+@payments_bp.route("/admin/payments/<int:payment_id>/approve", methods=["POST"])
+@admin_required
+def admin_approve_payment(payment_id):
+    payment = db.session.get(Payment, payment_id)
+    if not payment:
+        flash("Pago no encontrado", "error")
+        return redirect(url_for("payments.admin_cashapp_payments"))
+    if payment.method != "cashapp_manual":
+        flash("Solo pagos Cash App manual", "error")
+        return redirect(url_for("payments.admin_cashapp_payments"))
+    try:
+        from modules.payments.services.billing import activate_payment_benefits
+
+        mark_payment_paid(payment)
+        activate_payment_benefits(payment)
+        flash("Pago Cash App aprobado", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
+    status = request.form.get("status_filter") or "pending"
+    return redirect(url_for("payments.admin_cashapp_payments", status=status))
+
+
+@payments_bp.route("/admin/payments/<int:payment_id>/reject", methods=["POST"])
+@admin_required
+def admin_reject_payment(payment_id):
+    payment = db.session.get(Payment, payment_id)
+    if not payment:
+        flash("Pago no encontrado", "error")
+        return redirect(url_for("payments.admin_cashapp_payments"))
+    if payment.method != "cashapp_manual":
+        flash("Solo pagos Cash App manual", "error")
+        return redirect(url_for("payments.admin_cashapp_payments"))
+    try:
+        cancel_payment(payment)
+        flash("Pago Cash App rechazado", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
+    status = request.form.get("status_filter") or "pending"
+    return redirect(url_for("payments.admin_cashapp_payments", status=status))
 
 
 @payments_bp.route("/admin/payments/<int:payment_id>/mark-paid", methods=["POST"])

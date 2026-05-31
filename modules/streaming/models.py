@@ -178,6 +178,7 @@ class Payment(db.Model):
     status = db.Column(db.String(50), default="pending", nullable=False)
     provider_payment_id = db.Column(db.String(255))
     reference_note = db.Column(db.String(500))
+    screenshot_url = db.Column(db.String(1000))
     payment_type = db.Column(db.String(50), nullable=False, default="plan")
     reference_id = db.Column(db.String(255))
     metadata_json = db.Column(db.Text)

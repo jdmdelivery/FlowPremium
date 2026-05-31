@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}💵 {{ t('cashapp_admin_title') }} — FlowPremium{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/payments.css') }}">
+{% endblock %}
+{% block content %}
+<section class="admin-page payments-admin">
+    <h1>💵 {{ t('cashapp_admin_title') }}</h1>
+    <p class="payments-subtitle">{{ t('cashapp_admin_subtitle') }}</p>
+
+    <div class="payments-stats">
+        <div class="stat-card"><span>{{ t('status_pending') }}</span><strong>{{ pending_count }}</strong></div>
+    </div>
+
+    <div class="filter-tabs">
+        <a href="{{ url_for('payments.admin_cashapp_payments', status='pending') }}" class="{% if status_filter == 'pending' %}active{% endif %}">{{ t('status_pending') }}</a>
+        <a href="{{ url_for('payments.admin_cashapp_payments', status='paid') }}" class="{% if status_filter == 'paid' %}active{% endif %}">{{ t('status_paid') }}</a>
+        <a href="{{ url_for('payments.admin_cashapp_payments', status='cancelled') }}" class="{% if status_filter == 'cancelled' %}active{% endif %}">{{ t('status_cancelled') }}</a>
+        <a href="{{ url_for('payments.admin_cashapp_payments', status='all') }}" class="{% if status_filter == 'all' %}active{% endif %}">{{ t('all') }}</a>
+    </div>
+
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>{{ t('username') }}</th>
+                <th>{{ t('email') }}</th>
+                <th>{{ t('price') }}</th>
+                <th>{{ t('created') }}</th>
+                <th>{{ t('payment_reference') }}</th>
+                <th>{{ t('episode') }}</th>
+                <th>{{ t('cashapp_screenshot') }}</th>
+                <th>{{ t('payment_status') }}</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for row in rows %}
+            {% set pay = row.payment %}
+            <tr>
+                <td>{{ pay.display_customer }}</td>
+                <td>{{ pay.customer_email or '—' }}</td>
+                <td>${{ '%.2f'|format(pay.amount) }}</td>
+                <td>{{ pay.created_at.strftime('%Y-%m-%d %H:%M') if pay.created_at else '—' }}</td>
+                <td>{{ pay.reference_note or pay.reference_code }}</td>
+                <td>{{ row.episode_title or '—' }}</td>
+                <td>
+                    {% if row.screenshot_url %}
+                    <a href="{{ row.screenshot_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline">{{ t('view') }}</a>
+                    {% else %}
+                    —
+                    {% endif %}
+                </td>
+                <td><span class="status-pill {{ pay.status }}">{{ pay.status }}</span></td>
+                <td class="actions-cell">
+                    {% if pay.status == 'pending' %}
+                    <form method="post" action="{{ url_for('payments.admin_approve_payment', payment_id=pay.id) }}">
+                        <input type="hidden" name="status_filter" value="{{ status_filter }}">
+                        <button type="submit" class="btn btn-sm btn-accent">✅ {{ t('approve') }}</button>
+                    </form>
+                    <form method="post" action="{{ url_for('payments.admin_reject_payment', payment_id=pay.id) }}">
+                        <input type="hidden" name="status_filter" value="{{ status_filter }}">
+                        <button type="submit" class="btn btn-sm btn-outline">❌ {{ t('reject') }}</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+        {% else %}
+            <tr><td colspan="9">{{ t('no_payments') }}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <a href="{{ url_for('payments.admin_payments') }}" class="back-link">&larr; {{ t('payments') }}</a>
+    <a href="{{ url_for('streaming_admin.dashboard') }}" class="back-link">{{ t('dashboard') }}</a>
+</section>
+{% endblock %}

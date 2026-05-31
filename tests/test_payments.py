@@ -1,7 +1,7 @@
 """Payment flow tests."""
 
 from extensions import db
-from modules.streaming.models import Payment
+from modules.streaming.models import EpisodePurchase, Payment
 
 
 def test_health(client):
@@ -140,6 +140,83 @@ def test_episode_checkout_page(user_client, app, sample_content):
     assert resp.status_code == 200
     assert b"paypal.com/sdk/js" in resp.data
     assert b"Pagar con PayPal" in resp.data or b"Pay with PayPal" in resp.data
+    assert b"Pagar con Cash App" in resp.data or b"Pay with Cash App" in resp.data
+
+
+def test_episode_checkout_cashapp_only(user_client, app, sample_content):
+    with app.app_context():
+        app.config["PAYPAL_CLIENT_ID"] = ""
+        app.config["PAYPAL_CLIENT_SECRET"] = ""
+        app.config["CASHAPP_TAG"] = "$Thelion02"
+
+    ep_id = sample_content["premium_episode_id"]
+    resp = user_client.get(f"/streaming/checkout/{ep_id}")
+    assert resp.status_code == 200
+    assert b"cash.app/$Thelion02" in resp.data
+    assert b"Ya envi" in resp.data or b"already sent" in resp.data.lower()
+
+
+def test_episode_cashapp_submit_and_admin_approve(user_client, admin_client, app, sample_content):
+    with app.app_context():
+        app.config["CASHAPP_TAG"] = "$Thelion02"
+
+    ep_id = sample_content["premium_episode_id"]
+    resp = user_client.post(
+        f"/streaming/checkout/{ep_id}/cashapp",
+        data={
+            "customer_name": "user",
+            "customer_email": "user@test.com",
+            "reference": "Test payment note",
+        },
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+
+    with app.app_context():
+        payment = Payment.query.filter_by(
+            method="cashapp_manual", payment_type="episode", status="pending"
+        ).first()
+        assert payment is not None
+        assert payment.reference_id == str(ep_id)
+        assert payment.amount == 9.99
+        assert "Test payment note" in (payment.reference_note or "")
+        payment_id = payment.id
+
+    resp = admin_client.post(
+        f"/admin/payments/{payment_id}/approve",
+        data={"status_filter": "pending"},
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+
+    with app.app_context():
+        payment = db.session.get(Payment, payment_id)
+        assert payment.status == "paid"
+        purchase = EpisodePurchase.query.filter_by(
+            user_id=payment.user_id, episode_id=ep_id
+        ).first()
+        assert purchase is not None
+
+
+def test_admin_cashapp_panel(admin_client, app):
+    with app.app_context():
+        payment = Payment(
+            user_id=2,
+            customer_email="user@test.com",
+            amount=9.99,
+            method="cashapp_manual",
+            status="pending",
+            payment_type="episode",
+            reference_id="1",
+            reference_note="FP-000099 | test",
+        )
+        payment.sync_legacy_fields()
+        db.session.add(payment)
+        db.session.commit()
+
+    resp = admin_client.get("/admin/payments/cashapp")
+    assert resp.status_code == 200
+    assert b"Pagos Cash App" in resp.data or b"Cash App Payments" in resp.data
 
 
 def test_paypal_status_not_configured(client):

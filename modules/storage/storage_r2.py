@@ -228,6 +228,44 @@ def upload_thumbnail(file: FileStorage, series_id: int | None = None) -> str:
     return _upload_fileobj(buf, key, content_type)
 
 
+def upload_payment_screenshot(file: FileStorage, payment_id: int | None = None) -> str:
+    """Upload Cash App payment proof screenshot to R2."""
+    if not is_r2_configured():
+        raise ValueError(
+            "Cloudflare R2 no está disponible. Revisa la configuración de almacenamiento."
+        )
+    from PIL import Image
+
+    ext = _ext(file.filename)
+    if ext == "jpeg":
+        ext = "jpg"
+    if ext not in current_app.config["ALLOWED_IMAGE_EXTENSIONS"]:
+        raise ValueError("Invalid image format")
+
+    max_size = current_app.config.get("MAX_IMAGE_SIZE", 5 * 1024 * 1024)
+    file.seek(0, 2)
+    size = file.tell()
+    file.seek(0)
+    if size > max_size:
+        raise ValueError("Screenshot too large. Maximum size is 5 MB.")
+
+    img = Image.open(file.stream)
+    img.verify()
+    file.stream.seek(0)
+    img = Image.open(file.stream)
+    if img.mode in ("RGBA", "P"):
+        img = img.convert("RGB")
+    buf = io.BytesIO()
+    save_ext = "JPEG" if ext in ("jpg", "jpeg") else ext.upper()
+    img.save(buf, format=save_ext, optimize=True, quality=85)
+    buf.seek(0)
+
+    folder = f"payments/{payment_id}" if payment_id else "payments"
+    key = f"{folder}/{uuid.uuid4().hex}.{'jpg' if ext in ('jpg', 'jpeg') else ext}"
+    content_type = IMAGE_CONTENT_TYPES.get(ext, "image/jpeg")
+    return _upload_fileobj(buf, key, content_type)
+
+
 def upload_series_image(
     file: FileStorage, series_id: int | None = None, kind: str = "hero"
 ) -> str:

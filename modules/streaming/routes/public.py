@@ -101,6 +101,7 @@ def purchase(episode_id):
 @streaming_bp.route("/checkout/<int:episode_id>")
 @login_required
 def episode_checkout(episode_id):
+    from modules.payments.services.billing import cashapp_pay_url, is_cashapp_configured
     from modules.payments.services.paypal_service import is_paypal_configured
 
     episode = Episode.query.filter_by(id=episode_id, is_active=True).first_or_404()
@@ -115,12 +116,47 @@ def episode_checkout(episode_id):
         flash("Ya comprado / Already purchased", "success")
         return redirect(url_for("streaming.watch", episode_id=episode.id))
 
-    if not is_paypal_configured():
-        flash("PayPal no está configurado / PayPal not configured", "error")
+    paypal_ok = is_paypal_configured()
+    cashapp_ok = is_cashapp_configured()
+    if not paypal_ok and not cashapp_ok:
+        flash("No hay métodos de pago configurados / No payment methods configured", "error")
         return redirect(url_for("streaming.series_detail", series_id=episode.series_id))
+
+    cashapp_tag = current_app.config.get("CASHAPP_TAG") or ""
+    cashtag = cashapp_tag if cashapp_tag.startswith("$") else f"${cashapp_tag}" if cashapp_tag else ""
 
     return render_template(
         "streaming/episode_checkout.html",
         episode=episode,
-        paypal_client_id=current_app.config.get("PAYPAL_CLIENT_ID"),
+        paypal_client_id=current_app.config.get("PAYPAL_CLIENT_ID") if paypal_ok else None,
+        paypal_enabled=paypal_ok,
+        cashapp_enabled=cashapp_ok,
+        cashapp_tag=cashtag,
+        cashapp_url=cashapp_pay_url(cashapp_tag),
     )
+
+
+@streaming_bp.route("/checkout/<int:episode_id>/cashapp", methods=["POST"])
+@login_required
+def episode_cashapp_submit(episode_id):
+    from modules.payments.services.billing import submit_episode_cashapp_payment
+
+    episode = Episode.query.filter_by(id=episode_id, is_active=True).first_or_404()
+    try:
+        payment = submit_episode_cashapp_payment(
+            current_user,
+            episode,
+            customer_name=request.form.get("customer_name"),
+            customer_email=request.form.get("customer_email"),
+            reference=request.form.get("reference"),
+            screenshot_file=request.files.get("screenshot"),
+        )
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("streaming.episode_checkout", episode_id=episode.id))
+
+    flash(
+        "Pago Cash App registrado como pendiente. El administrador lo verificará pronto.",
+        "success",
+    )
+    return redirect(url_for("streaming.series_detail", series_id=episode.series_id))

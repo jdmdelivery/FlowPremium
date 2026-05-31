@@ -19,6 +19,18 @@ PAYMENT_METHODS = frozenset({"paypal", "cashapp_manual", "square_cashapp", "manu
 PAYMENT_STATUSES = frozenset({"pending", "paid", "failed", "cancelled"})
 
 
+def is_cashapp_configured() -> bool:
+    return bool((current_app.config.get("CASHAPP_TAG") or "").strip())
+
+
+def cashapp_pay_url(tag: str | None = None) -> str:
+    raw = (tag or current_app.config.get("CASHAPP_TAG") or "").strip()
+    handle = raw.lstrip("$")
+    if not handle:
+        return ""
+    return f"https://cash.app/${handle}"
+
+
 def get_plan_catalog() -> dict[str, dict[str, Any]]:
     return current_app.config.get("PAYMENT_PLANS") or {}
 
@@ -132,6 +144,57 @@ def submit_cashapp_reference(payment_id: int, note: str) -> Payment:
     return payment
 
 
+def submit_episode_cashapp_payment(
+    user,
+    episode,
+    *,
+    customer_name: str | None,
+    customer_email: str | None,
+    reference: str | None,
+    screenshot_file=None,
+) -> Payment:
+    """Create a pending Cash App payment for an episode purchase."""
+    from modules.streaming.models import EpisodePurchase
+
+    if not is_cashapp_configured():
+        raise ValueError("Cash App is not configured")
+
+    if episode.is_free:
+        raise ValueError("Episode is free")
+
+    existing = EpisodePurchase.query.filter_by(user_id=user.id, episode_id=episode.id).first()
+    if existing:
+        raise ValueError("Episode already purchased")
+
+    name = (customer_name or user.username or "").strip() or user.username
+    email = (customer_email or user.email or "").strip().lower()
+    if not email:
+        raise ValueError("Email is required")
+
+    payment = create_episode_payment(user, episode, method="cashapp_manual")
+    payment.customer_name = name
+    payment.customer_email = email
+
+    ref = (reference or "").strip()
+    if ref:
+        payment.reference_note = f"{payment.reference_code} | {ref}"
+
+    if screenshot_file and getattr(screenshot_file, "filename", None):
+        from modules.streaming.upload import save_payment_screenshot
+
+        payment.screenshot_url = save_payment_screenshot(screenshot_file, payment.id)
+
+    payment.sync_legacy_fields()
+    db.session.commit()
+    logger.info(
+        "Episode Cash App payment submitted id=%s episode=%s user=%s",
+        payment.id,
+        episode.id,
+        user.id,
+    )
+    return payment
+
+
 def mark_payment_paid(payment: Payment, provider_payment_id: str | None = None) -> Payment:
     if payment.status == "paid":
         return payment
@@ -218,6 +281,13 @@ def create_episode_payment(user, episode, method: str = "paypal") -> Payment:
 
 def payments_by_status(status: str | None = None, limit: int = 200) -> list[Payment]:
     q = Payment.query.order_by(Payment.created_at.desc())
+    if status:
+        q = q.filter_by(status=status)
+    return q.limit(limit).all()
+
+
+def cashapp_payments(status: str | None = None, limit: int = 200) -> list[Payment]:
+    q = Payment.query.filter_by(method="cashapp_manual").order_by(Payment.created_at.desc())
     if status:
         q = q.filter_by(status=status)
     return q.limit(limit).all()

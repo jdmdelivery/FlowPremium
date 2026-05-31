@@ -2,7 +2,21 @@
     "use strict";
 
     const cfg = window.FLOWPREMIUM_EPISODE_CHECKOUT;
-    if (!cfg || !window.paypal) return;
+    if (!cfg) return;
+
+    const toggleBtn = document.getElementById("cashapp-toggle-form");
+    const form = document.getElementById("cashapp-episode-form");
+    if (toggleBtn && form) {
+        toggleBtn.addEventListener("click", () => {
+            form.classList.toggle("hidden");
+            toggleBtn.setAttribute(
+                "aria-expanded",
+                form.classList.contains("hidden") ? "false" : "true"
+            );
+        });
+    }
+
+    if (!cfg.paypalEnabled || !window.paypal) return;
 
     async function postJson(url, payload) {
         const res = await fetch(url, {

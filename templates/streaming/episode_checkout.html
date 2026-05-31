@@ -3,6 +3,7 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/payments.css') }}">
 {% endblock %}
+{% block body_class %}payments-page{% endblock %}
 {% block content %}
 <section class="payments-hero fade-in">
     <h1>{{ t('buy_episode') }}</h1>
@@ -10,11 +11,68 @@
     <p class="payments-subtitle">{{ t('payment_activation_note') }}</p>
 </section>
 
-<section class="card-glass" style="max-width:480px;margin:0 auto;padding:1.5rem;">
-    <p class="pay-with-label">{{ t('pay_with_paypal') }}</p>
-    <div id="paypal-button-container"></div>
-    <a href="{{ url_for('streaming.series_detail', series_id=episode.series_id) }}" class="btn btn-outline" style="margin-top:1rem;display:inline-block;">{{ t('back') }}</a>
-</section>
+<div class="checkout-stack">
+    {% if paypal_enabled %}
+    <section class="checkout-card card-glass">
+        <p class="pay-with-label">{{ t('pay_with_paypal') }}</p>
+        <div id="paypal-button-container"></div>
+    </section>
+    {% endif %}
+
+    {% if cashapp_enabled %}
+    <section class="checkout-card card-glass cashapp-checkout-card">
+        <div class="cashapp-checkout-header">
+            <div class="cashapp-icon">💵</div>
+            <div>
+                <h3>Cash App</h3>
+                <p class="cashapp-cashtag-label">{{ t('cashapp_cashtag') }}: <strong>{{ cashapp_tag }}</strong></p>
+            </div>
+        </div>
+
+        <a
+            href="{{ cashapp_url }}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn-cashapp"
+        >
+            {{ t('pay_with_cashapp') }}
+        </a>
+
+        <button type="button" class="btn-confirmar" id="cashapp-toggle-form">
+            {{ t('cashapp_confirm_sent') }}
+        </button>
+
+        <form
+            method="post"
+            action="{{ url_for('streaming.episode_cashapp_submit', episode_id=episode.id) }}"
+            enctype="multipart/form-data"
+            class="cashapp-episode-form hidden"
+            id="cashapp-episode-form"
+        >
+            <label>{{ t('username') }}
+                <input type="text" name="customer_name" value="{{ current_user.username }}" required>
+            </label>
+            <label>{{ t('email') }}
+                <input type="email" name="customer_email" value="{{ current_user.email }}" required>
+            </label>
+            <label>{{ t('price') }}
+                <input type="text" name="amount_display" value="${{ '%.2f'|format(episode.price) }} USD" readonly>
+            </label>
+            <label>{{ t('payment_reference') }}
+                <input type="text" name="reference" placeholder="{{ t('cashapp_reference_ph') }}" required>
+            </label>
+            <label>{{ t('cashapp_screenshot_optional') }}
+                <input type="file" name="screenshot" accept="image/*">
+            </label>
+            <button type="submit" class="btn btn-accent btn-block">{{ t('submit_reference') }}</button>
+        </form>
+
+        <small class="cashapp-help">{{ t('cashapp_confirm_help') }}</small>
+    </section>
+    {% endif %}
+
+    <a href="{{ url_for('streaming.series_detail', series_id=episode.series_id) }}" class="btn btn-outline checkout-back">{{ t('back') }}</a>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -27,6 +85,7 @@ window.FLOWPREMIUM_EPISODE_CHECKOUT = {
     createOrderUrl: "{{ url_for('payments.paypal_create_order') }}",
     captureOrderUrl: "{{ url_for('payments.paypal_capture_order') }}",
     watchUrl: "{{ url_for('streaming.watch', episode_id=episode.id) }}",
+    paypalEnabled: {{ 'true' if paypal_enabled else 'false' }},
 };
 </script>
 <script src="{{ url_for('static', filename='js/episode-checkout.js') }}" defer></script>

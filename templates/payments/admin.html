@@ -69,6 +69,7 @@
         </tbody>
     </table>
 
+    <a href="{{ url_for('payments.admin_cashapp_payments') }}" class="btn btn-outline">💵 {{ t('cashapp_admin_title') }}</a>
     <a href="{{ url_for('streaming_admin.dashboard') }}" class="back-link">&larr; {{ t('dashboard') }}</a>
     <a href="{{ url_for('streaming_admin.payments_manage') }}" class="back-link">{{ t('grant_purchase') }} / grants</a>
 </section>

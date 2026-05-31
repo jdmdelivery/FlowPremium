@@ -164,6 +164,7 @@ def migrate_stream_payments() -> None:
         "method": "VARCHAR(50)",
         "provider_payment_id": "VARCHAR(255)",
         "reference_note": "VARCHAR(500)",
+        "screenshot_url": "VARCHAR(1000)",
         "paid_at": "DATETIME",
     }
     for name, col_type in additions.items():

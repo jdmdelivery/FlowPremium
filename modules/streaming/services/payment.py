@@ -96,12 +96,13 @@ def purchase_episode(user, episode: Episode) -> dict:
         return {"success": True, "message": "Already purchased"}
 
     from modules.payments.services.paypal_service import is_paypal_configured
+    from modules.payments.services.billing import is_cashapp_configured
 
-    if is_paypal_configured():
+    if is_paypal_configured() or is_cashapp_configured():
         return {
             "success": False,
             "checkout_url": url_for("streaming.episode_checkout", episode_id=episode.id),
-            "message": "Complete payment with PayPal",
+            "message": "Complete payment at checkout",
         }
 
     provider = get_payment_provider()
