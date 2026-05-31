@@ -119,7 +119,53 @@ def test_paypal_create_order_rejects_bad_plan(client, app):
     assert resp.status_code == 400
 
 
+def test_paypal_status_not_configured(client):
+    resp = client.get("/api/paypal/status")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["configured"] is False
+    assert data["ready"] is False
+
+
+def test_paypal_status_configured(monkeypatch, client, app):
+    with app.app_context():
+        app.config["PAYPAL_CLIENT_ID"] = "test-client"
+        app.config["PAYPAL_CLIENT_SECRET"] = "test-secret"
+        app.config["PAYPAL_MODE"] = "sandbox"
+
+    monkeypatch.setattr(
+        "modules.payments.routes.verify_paypal_connection",
+        lambda: (True, "PayPal connection OK"),
+    )
+
+    resp = client.get("/api/paypal/status")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["configured"] is True
+    assert data["ready"] is True
+    assert data["mode"] == "sandbox"
+
+
+def test_payments_page_hides_paypal_without_credentials(client):
+    resp = client.get("/payments")
+    assert resp.status_code == 200
+    assert b"paypal.com/sdk/js" not in resp.data
+    assert b"not configured" in resp.data.lower() or b"No configurado" in resp.data
+
+
+def test_payments_page_loads_paypal_sdk_when_configured(client, app):
+    with app.app_context():
+        app.config["PAYPAL_CLIENT_ID"] = "sandbox-client-id"
+        app.config["PAYPAL_CLIENT_SECRET"] = "sandbox-secret"
+
+    resp = client.get("/payments")
+    assert resp.status_code == 200
+    assert b"paypal.com/sdk/js" in resp.data
+    assert b"Pagar con PayPal" in resp.data or b"Pay with PayPal" in resp.data
+
+
 def test_admin_payments_panel(admin_client):
     resp = admin_client.get("/admin/payments")
     assert resp.status_code == 200
     assert b"Total" in resp.data or b"total" in resp.data.lower()
+

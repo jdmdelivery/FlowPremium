@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import base64
-import json
 import logging
-import urllib.error
-import urllib.request
 
+import requests
 from flask import current_app
 
 from extensions import db
@@ -18,39 +15,50 @@ logger = logging.getLogger(__name__)
 
 
 def is_paypal_configured() -> bool:
-    return bool(
-        current_app.config.get("PAYPAL_CLIENT_ID")
-        and current_app.config.get("PAYPAL_CLIENT_SECRET")
-    )
+    client_id = (current_app.config.get("PAYPAL_CLIENT_ID") or "").strip()
+    secret = (current_app.config.get("PAYPAL_CLIENT_SECRET") or "").strip()
+    return bool(client_id and secret)
 
 
-def _api_base() -> str:
-    mode = (current_app.config.get("PAYPAL_MODE") or "sandbox").lower()
-    if mode == "live":
+def paypal_mode() -> str:
+    return (current_app.config.get("PAYPAL_MODE") or "sandbox").lower()
+
+
+def api_base() -> str:
+    if paypal_mode() == "live":
         return "https://api-m.paypal.com"
     return "https://api-m.sandbox.paypal.com"
 
 
+def sdk_base() -> str:
+    """PayPal JS SDK host (sandbox uses same CDN; credentials determine environment)."""
+    return "https://www.paypal.com"
+
+
+def verify_paypal_connection() -> tuple[bool, str]:
+    """Validate credentials by requesting an OAuth token."""
+    if not is_paypal_configured():
+        return False, "PayPal credentials not configured"
+    try:
+        get_access_token()
+        return True, "PayPal connection OK"
+    except RuntimeError as exc:
+        return False, str(exc)
+
+
 def _request(method: str, path: str, payload: dict | None = None, token: str | None = None) -> dict:
-    url = f"{_api_base()}{path}"
+    url = f"{api_base()}{path}"
     headers = {"Content-Type": "application/json", "Accept": "application/json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
-    data = None
-    if payload is not None:
-        data = json.dumps(payload).encode("utf-8")
-
-    req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            body = resp.read().decode("utf-8")
-            return json.loads(body) if body else {}
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")
-        logger.error("PayPal HTTP error %s: %s", exc.code, detail)
-        raise RuntimeError(f"PayPal API error: {exc.code}") from exc
-    except urllib.error.URLError as exc:
+        resp = requests.request(method, url, json=payload, headers=headers, timeout=30)
+        if resp.status_code >= 400:
+            logger.error("PayPal HTTP error %s: %s", resp.status_code, resp.text)
+            raise RuntimeError(f"PayPal API error: {resp.status_code}")
+        return resp.json() if resp.text else {}
+    except requests.RequestException as exc:
         logger.error("PayPal network error: %s", exc)
         raise RuntimeError("PayPal network error") from exc
 
@@ -58,24 +66,20 @@ def _request(method: str, path: str, payload: dict | None = None, token: str | N
 def get_access_token() -> str:
     client_id = current_app.config["PAYPAL_CLIENT_ID"]
     secret = current_app.config["PAYPAL_CLIENT_SECRET"]
-    credentials = base64.b64encode(f"{client_id}:{secret}".encode()).decode()
-    url = f"{_api_base()}/v1/oauth2/token"
-    req = urllib.request.Request(
-        url,
-        data=b"grant_type=client_credentials",
-        headers={
-            "Authorization": f"Basic {credentials}",
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-        method="POST",
-    )
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            return data["access_token"]
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")
-        logger.error("PayPal token error: %s", detail)
+        resp = requests.post(
+            f"{api_base()}/v1/oauth2/token",
+            auth=(client_id, secret),
+            data={"grant_type": "client_credentials"},
+            headers={"Accept": "application/json"},
+            timeout=30,
+        )
+        if resp.status_code >= 400:
+            logger.error("PayPal token error: %s", resp.text)
+            raise RuntimeError("PayPal authentication failed")
+        return resp.json()["access_token"]
+    except requests.RequestException as exc:
+        logger.error("PayPal token network error: %s", exc)
         raise RuntimeError("PayPal authentication failed") from exc
 
 
@@ -101,6 +105,7 @@ def create_paypal_order(payment: Payment) -> dict:
     }
     order = _request("POST", "/v2/checkout/orders", payload, token=token)
     payment.provider_payment_id = order.get("id")
+    payment.method = "paypal"
     payment.sync_legacy_fields()
     db.session.commit()
     return order
@@ -132,12 +137,12 @@ def capture_paypal_order(order_id: str, payment_id: int) -> Payment:
         fail_payment(payment, f"PayPal status {status}")
         raise ValueError("PayPal payment not completed")
 
-    capture_id = None
+    capture_id = order_id
     try:
         capture_id = result["purchase_units"][0]["payments"]["captures"][0]["id"]
     except (KeyError, IndexError, TypeError):
-        capture_id = order_id
+        pass
 
-    mark_payment_paid(payment, provider_payment_id=capture_id or order_id)
+    mark_payment_paid(payment, provider_payment_id=capture_id)
     activate_payment_benefits(payment)
     return payment

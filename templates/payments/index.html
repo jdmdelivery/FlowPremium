@@ -42,7 +42,8 @@
             <h3>PayPal</h3>
             <p>{{ t('paypal_desc') }}</p>
             {% if paypal_enabled %}
-            <div id="paypal-button-container"></div>
+            <p class="pay-with-label">{{ t('pay_with_paypal') }}</p>
+            <div id="paypal-button-container" aria-label="{{ t('pay_with_paypal') }}"></div>
             {% else %}
             <span class="badge badge-muted">{{ t('not_configured') }}</span>
             {% endif %}
@@ -90,7 +91,7 @@
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/payments.js') }}" defer></script>
 {% if paypal_enabled and paypal_client_id %}
-<script src="https://www.paypal.com/sdk/js?client-id={{ paypal_client_id }}&currency=USD"></script>
+<script src="https://www.paypal.com/sdk/js?client-id={{ paypal_client_id }}&currency=USD&intent=capture&components=buttons"></script>
 {% endif %}
 {% if square_enabled and square_config %}
 <script src="https://{{ 'sandbox.' if square_config.environment != 'production' else '' }}web.squarecdn.com/v1/square.js"></script>

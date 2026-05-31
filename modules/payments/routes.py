@@ -17,7 +17,13 @@ from modules.payments.services.billing import (
     resolve_plan,
     submit_cashapp_reference,
 )
-from modules.payments.services.paypal_service import capture_paypal_order, create_paypal_order, is_paypal_configured
+from modules.payments.services.paypal_service import (
+    capture_paypal_order,
+    create_paypal_order,
+    is_paypal_configured,
+    paypal_mode,
+    verify_paypal_connection,
+)
 from modules.payments.services.square_service import charge_square_payment, is_square_configured, public_config
 from modules.streaming.models import Payment
 from utils.auth import admin_required
@@ -28,13 +34,47 @@ payments_bp = Blueprint("payments", __name__)
 
 
 def _payment_methods_context():
+    configured = is_paypal_configured()
     return {
-        "paypal_enabled": is_paypal_configured(),
-        "paypal_client_id": current_app.config.get("PAYPAL_CLIENT_ID") if is_paypal_configured() else None,
+        "paypal_enabled": configured,
+        "paypal_client_id": current_app.config.get("PAYPAL_CLIENT_ID") if configured else None,
+        "paypal_mode": paypal_mode(),
         "cashapp_tag": current_app.config.get("CASHAPP_TAG") or "",
         "square_enabled": is_square_configured(),
         "square_config": public_config(),
     }
+
+
+@payments_bp.route("/api/paypal/status")
+def paypal_status():
+    """Diagnostic endpoint: PayPal env vars and API connectivity."""
+    mode = paypal_mode()
+    client_id = (current_app.config.get("PAYPAL_CLIENT_ID") or "").strip()
+    secret_set = bool((current_app.config.get("PAYPAL_CLIENT_SECRET") or "").strip())
+
+    if not is_paypal_configured():
+        return jsonify(
+            {
+                "configured": False,
+                "ready": False,
+                "mode": mode,
+                "client_id_set": bool(client_id),
+                "client_secret_set": secret_set,
+                "message": "PayPal credentials not configured",
+            }
+        )
+
+    ready, message = verify_paypal_connection()
+    return jsonify(
+        {
+            "configured": True,
+            "ready": ready,
+            "mode": mode,
+            "client_id_set": True,
+            "client_secret_set": secret_set,
+            "message": message,
+        }
+    )
 
 
 @payments_bp.route("/payments")
