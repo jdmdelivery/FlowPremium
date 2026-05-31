@@ -114,6 +114,12 @@ TRANSLATIONS = {
         "optional_reference": "Nota o comprobante (opcional)",
         "optional_reference_ph": "Últimos 4 dígitos, captura, etc.",
         "submit_reference": "Enviar referencia",
+        "cashapp_send_to": "Envía tu pago a:",
+        "cashapp_confirm_sent": "Ya envié el pago",
+        "cashapp_confirm_help": (
+            'Después de enviar el pago, presiona "Ya envié el pago" '
+            "para que el administrador pueda verificarlo."
+        ),
         "mark_cashapp_paid": "Marcar Cash App como pagado",
         "cancel_payment": "Cancelar pago",
         "total_today": "Total hoy",
@@ -237,6 +243,12 @@ TRANSLATIONS = {
         "optional_reference": "Note or receipt (optional)",
         "optional_reference_ph": "Last 4 digits, screenshot note, etc.",
         "submit_reference": "Submit reference",
+        "cashapp_send_to": "Send your payment to:",
+        "cashapp_confirm_sent": "I already sent the payment",
+        "cashapp_confirm_help": (
+            'After sending the payment, press "I already sent the payment" '
+            "so the administrator can verify it."
+        ),
         "mark_cashapp_paid": "Mark Cash App as paid",
         "cancel_payment": "Cancel payment",
         "total_today": "Total today",

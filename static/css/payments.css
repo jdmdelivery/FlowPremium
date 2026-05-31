@@ -131,6 +131,139 @@
 
 .cashapp-steps { line-height: 1.8; padding-left: 1.2rem; }
 
+.cashapp-page {
+    display: flex;
+    justify-content: center;
+    padding: 2.5rem 1rem 3rem;
+}
+
+.cashapp-card {
+    width: min(100%, 420px);
+    background: linear-gradient(165deg, rgba(18, 18, 18, 0.98), rgba(8, 8, 8, 0.98));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    padding: 2rem 1.75rem;
+    text-align: center;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+}
+
+.cashapp-icon {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 1rem;
+    border-radius: 16px;
+    background: #00d632;
+    color: #000;
+    display: grid;
+    place-items: center;
+    font-size: 1.75rem;
+    font-weight: 800;
+}
+
+.cashapp-card h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1.35rem;
+}
+
+.cashapp-send-to {
+    color: var(--text-muted, #aaa);
+    margin: 0 0 0.35rem;
+}
+
+.cashapp-tag {
+    margin: 0 0 1.25rem;
+    font-size: 2rem;
+    letter-spacing: 0.02em;
+    color: #00d632;
+}
+
+.cashapp-payment-info {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 0.85rem 1rem;
+    margin-bottom: 1.25rem;
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.cashapp-payment-info p {
+    margin: 0;
+}
+
+.cashapp-payment-info .reference-code {
+    display: inline;
+    font-size: inherit;
+    letter-spacing: 0.06em;
+    color: #00d632;
+}
+
+.btn-cashapp {
+    display: block;
+    width: 100%;
+    padding: 0.85rem 1rem;
+    border-radius: 12px;
+    background: #00d632;
+    color: #000;
+    font-weight: 700;
+    text-decoration: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 8px 24px rgba(0, 214, 50, 0.25);
+}
+
+.btn-cashapp:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 28px rgba(0, 214, 50, 0.35);
+    color: #000;
+}
+
+.cashapp-confirm-form {
+    margin-top: 1rem;
+}
+
+.cashapp-note {
+    display: block;
+    text-align: left;
+    font-size: 0.85rem;
+    color: var(--text-muted, #aaa);
+    margin-bottom: 0.75rem;
+}
+
+.cashapp-note input {
+    width: 100%;
+    margin-top: 0.35rem;
+    padding: 0.65rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.35);
+    color: inherit;
+}
+
+.btn-confirmar {
+    width: 100%;
+    padding: 0.85rem 1rem;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.06);
+    color: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-confirmar:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
+.cashapp-help {
+    display: block;
+    margin-top: 1rem;
+    color: var(--text-muted, #aaa);
+    line-height: 1.5;
+    font-size: 0.82rem;
+}
+
 .payments-stats {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));

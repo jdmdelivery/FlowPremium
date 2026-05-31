@@ -3,35 +3,49 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/payments.css') }}">
 {% endblock %}
+{% block body_class %}payments-page{% endblock %}
 {% block content %}
-<section class="payments-hero fade-in">
-    <h1>{{ t('pay_with_cashapp') }}</h1>
-    <p>{{ t('payment_activation_note') }}</p>
-</section>
+{% set cashtag = cashapp_tag if cashapp_tag.startswith('$') else '$' ~ cashapp_tag %}
+{% set cashtag_handle = cashtag[1:] %}
 
-<section class="cashapp-instructions card-glass">
-    <div class="reference-box">
-        <span class="label">{{ t('payment_reference') }}</span>
-        <strong class="reference-code">{{ payment.reference_code }}</strong>
+<section class="cashapp-page fade-in">
+    <div class="cashapp-card">
+        <div class="cashapp-icon">$</div>
+
+        <h3>Cash App</h3>
+
+        <p class="cashapp-send-to">{{ t('cashapp_send_to') }}</p>
+
+        <h2 class="cashapp-tag">{{ cashtag }}</h2>
+
+        <div class="cashapp-payment-info">
+            <p>{{ t('cashapp_step_1') }} <strong>${{ '%.2f'|format(payment.amount) }}</strong></p>
+            <p>{{ t('payment_reference') }}: <strong class="reference-code">{{ payment.reference_code }}</strong></p>
+        </div>
+
+        <a
+            href="https://cash.app/${{ cashtag_handle }}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn-cashapp"
+        >
+            {{ t('pay_with_cashapp') }}
+        </a>
+
+        <form method="post" action="{{ url_for('payments.cashapp_confirm') }}" class="cashapp-confirm-form">
+            <input type="hidden" name="payment_id" value="{{ payment.id }}">
+            <label class="cashapp-note">
+                {{ t('optional_reference') }}
+                <input type="text" name="reference_note" placeholder="{{ t('optional_reference_ph') }}">
+            </label>
+            <button type="submit" class="btn-confirmar">
+                {{ t('cashapp_confirm_sent') }}
+            </button>
+        </form>
+
+        <small class="cashapp-help">
+            {{ t('cashapp_confirm_help') }}
+        </small>
     </div>
-
-    <ol class="cashapp-steps">
-        <li>{{ t('cashapp_step_1') }} <strong>${{ '%.2f'|format(payment.amount) }}</strong></li>
-        <li>{{ t('cashapp_step_2') }} <strong>{{ cashapp_tag }}</strong></li>
-        <li>{{ t('cashapp_step_3') }} <strong>{{ payment.reference_code }}</strong></li>
-    </ol>
-
-    <form method="post" action="{{ url_for('payments.cashapp_confirm') }}" class="checkout-fields">
-        <input type="hidden" name="payment_id" value="{{ payment.id }}">
-        <label>{{ t('optional_reference') }}
-            <input type="text" name="reference_note" placeholder="{{ t('optional_reference_ph') }}">
-        </label>
-        <button type="submit" class="btn btn-accent">{{ t('submit_reference') }}</button>
-    </form>
-
-    <p class="status-note">
-        <span class="status-pill pending">{{ t('status_pending') }}</span>
-        {{ t('payment_activation_note') }}
-    </p>
 </section>
 {% endblock %}
