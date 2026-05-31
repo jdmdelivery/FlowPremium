@@ -2,6 +2,8 @@ import json
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 
+from flask import url_for
+
 from extensions import db
 from modules.streaming.models import Episode, EpisodePurchase, Payment, Subscription
 
@@ -44,21 +46,10 @@ class StripePaymentProvider(PaymentProvider):
         raise NotImplementedError("Configure STRIPE_SECRET_KEY to enable Stripe payments")
 
 
-class PayPalPaymentProvider(PaymentProvider):
-    def is_configured(self) -> bool:
-        from flask import current_app
-        return bool(current_app.config.get("PAYPAL_CLIENT_ID"))
-
-    def create_checkout(self, user, amount: float, payment_type: str, reference_id: str) -> dict:
-        raise NotImplementedError("Configure PAYPAL_CLIENT_ID to enable PayPal payments")
-
-
 def get_payment_provider() -> PaymentProvider:
     from flask import current_app
     if current_app.config.get("STRIPE_SECRET_KEY"):
         return StripePaymentProvider()
-    if current_app.config.get("PAYPAL_CLIENT_ID"):
-        return PayPalPaymentProvider()
     return ManualPaymentProvider()
 
 
@@ -97,11 +88,21 @@ def grant_subscription(user_id: int, days: int = 30, payment_id: int | None = No
 
 def purchase_episode(user, episode: Episode) -> dict:
     if episode.is_free:
+        grant_episode_purchase(user.id, episode.id)
         return {"success": True, "message": "Episode is free"}
 
     existing = EpisodePurchase.query.filter_by(user_id=user.id, episode_id=episode.id).first()
     if existing:
         return {"success": True, "message": "Already purchased"}
+
+    from modules.payments.services.paypal_service import is_paypal_configured
+
+    if is_paypal_configured():
+        return {
+            "success": False,
+            "checkout_url": url_for("streaming.episode_checkout", episode_id=episode.id),
+            "message": "Complete payment with PayPal",
+        }
 
     provider = get_payment_provider()
     result = provider.create_checkout(
@@ -111,8 +112,8 @@ def purchase_episode(user, episode: Episode) -> dict:
         reference_id=str(episode.id),
     )
 
-    if provider.is_configured() and isinstance(provider, ManualPaymentProvider):
-        payment = Payment.query.get(result["payment_id"])
+    if isinstance(provider, ManualPaymentProvider):
+        payment = db.session.get(Payment, result["payment_id"])
         approve_payment(payment)
         grant_episode_purchase(user.id, episode.id, payment.id)
         return {"success": True, "message": "Purchase recorded (manual mode)", "payment_id": payment.id}

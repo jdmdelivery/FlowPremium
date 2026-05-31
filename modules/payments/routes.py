@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, url_for
+from flask_login import current_user
 
 from extensions import db
 from modules.payments.services.billing import (
@@ -143,15 +144,27 @@ def paypal_create_order():
         return jsonify({"error": "PayPal not configured"}), 503
 
     data = request.get_json(silent=True) or {}
-    plan_id = data.get("plan_id", "monthly")
+    episode_id = data.get("episode_id")
 
     try:
-        payment = create_pending_payment(
-            plan_id=plan_id,
-            method="paypal",
-            customer_name=data.get("customer_name"),
-            customer_email=data.get("customer_email"),
-        )
+        if episode_id:
+            from modules.streaming.models import Episode
+            from modules.payments.services.billing import create_episode_payment
+
+            episode = db.session.get(Episode, int(episode_id))
+            if not episode or not episode.is_active or episode.is_free:
+                return jsonify({"error": "Invalid episode"}), 400
+            if not current_user.is_authenticated:
+                return jsonify({"error": "Login required"}), 401
+            payment = create_episode_payment(current_user, episode, method="paypal")
+        else:
+            plan_id = data.get("plan_id", "monthly")
+            payment = create_pending_payment(
+                plan_id=plan_id,
+                method="paypal",
+                customer_name=data.get("customer_name"),
+                customer_email=data.get("customer_email"),
+            )
         order = create_paypal_order(payment)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400

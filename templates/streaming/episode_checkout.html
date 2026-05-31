@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ t('buy_episode') }} — {{ episode.title }}{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/payments.css') }}">
+{% endblock %}
+{% block content %}
+<section class="payments-hero fade-in">
+    <h1>{{ t('buy_episode') }}</h1>
+    <p class="payments-subtitle">{{ episode.title }} — ${{ '%.2f'|format(episode.price) }} USD</p>
+    <p class="payments-subtitle">{{ t('payment_activation_note') }}</p>
+</section>
+
+<section class="card-glass" style="max-width:480px;margin:0 auto;padding:1.5rem;">
+    <p class="pay-with-label">{{ t('pay_with_paypal') }}</p>
+    <div id="paypal-button-container"></div>
+    <a href="{{ url_for('streaming.series_detail', series_id=episode.series_id) }}" class="btn btn-outline" style="margin-top:1rem;display:inline-block;">{{ t('back') }}</a>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{% if paypal_client_id %}
+<script src="https://www.paypal.com/sdk/js?client-id={{ paypal_client_id }}&currency=USD&intent=capture&components=buttons"></script>
+{% endif %}
+<script>
+window.FLOWPREMIUM_EPISODE_CHECKOUT = {
+    episodeId: {{ episode.id }},
+    createOrderUrl: "{{ url_for('payments.paypal_create_order') }}",
+    captureOrderUrl: "{{ url_for('payments.paypal_capture_order') }}",
+    watchUrl: "{{ url_for('streaming.watch', episode_id=episode.id) }}",
+};
+</script>
+<script src="{{ url_for('static', filename='js/episode-checkout.js') }}" defer></script>
+{% endblock %}

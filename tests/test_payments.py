@@ -119,6 +119,29 @@ def test_paypal_create_order_rejects_bad_plan(client, app):
     assert resp.status_code == 400
 
 
+def test_episode_purchase_redirects_to_paypal_checkout(user_client, app, sample_content):
+    with app.app_context():
+        app.config["PAYPAL_CLIENT_ID"] = "test-id"
+        app.config["PAYPAL_CLIENT_SECRET"] = "test-secret"
+
+    ep_id = sample_content["premium_episode_id"]
+    resp = user_client.post(f"/streaming/purchase/{ep_id}", follow_redirects=False)
+    assert resp.status_code == 302
+    assert f"/streaming/checkout/{ep_id}" in resp.location
+
+
+def test_episode_checkout_page(user_client, app, sample_content):
+    with app.app_context():
+        app.config["PAYPAL_CLIENT_ID"] = "test-id"
+        app.config["PAYPAL_CLIENT_SECRET"] = "test-secret"
+
+    ep_id = sample_content["premium_episode_id"]
+    resp = user_client.get(f"/streaming/checkout/{ep_id}")
+    assert resp.status_code == 200
+    assert b"paypal.com/sdk/js" in resp.data
+    assert b"Pagar con PayPal" in resp.data or b"Pay with PayPal" in resp.data
+
+
 def test_paypal_status_not_configured(client):
     resp = client.get("/api/paypal/status")
     assert resp.status_code == 200

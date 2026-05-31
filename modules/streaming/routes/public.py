@@ -1,4 +1,4 @@
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, redirect, render_template, request, url_for, current_app
 from flask_login import current_user, login_required
 
 from extensions import db
@@ -90,5 +90,37 @@ def my_purchases():
 def purchase(episode_id):
     episode = Episode.query.get_or_404(episode_id)
     result = purchase_episode(current_user, episode)
+    if result.get("checkout_url"):
+        return redirect(result["checkout_url"])
     flash(result.get("message", ""), "success" if result.get("success") else "warning")
+    if result.get("success"):
+        return redirect(url_for("streaming.watch", episode_id=episode.id))
     return redirect(url_for("streaming.series_detail", series_id=episode.series_id))
+
+
+@streaming_bp.route("/checkout/<int:episode_id>")
+@login_required
+def episode_checkout(episode_id):
+    from modules.payments.services.paypal_service import is_paypal_configured
+
+    episode = Episode.query.filter_by(id=episode_id, is_active=True).first_or_404()
+    if episode.is_free:
+        flash("Este episodio es gratis / This episode is free", "success")
+        return redirect(url_for("streaming.watch", episode_id=episode.id))
+
+    existing = EpisodePurchase.query.filter_by(
+        user_id=current_user.id, episode_id=episode.id
+    ).first()
+    if existing:
+        flash("Ya comprado / Already purchased", "success")
+        return redirect(url_for("streaming.watch", episode_id=episode.id))
+
+    if not is_paypal_configured():
+        flash("PayPal no está configurado / PayPal not configured", "error")
+        return redirect(url_for("streaming.series_detail", series_id=episode.series_id))
+
+    return render_template(
+        "streaming/episode_checkout.html",
+        episode=episode,
+        paypal_client_id=current_app.config.get("PAYPAL_CLIENT_ID"),
+    )

@@ -186,6 +186,36 @@ def payment_totals() -> dict[str, float]:
     return {"day": round(day_total, 2), "month": round(month_total, 2)}
 
 
+def create_episode_payment(user, episode, method: str = "paypal") -> Payment:
+    """Create a pending payment for a single episode (amount validated server-side)."""
+    if method not in PAYMENT_METHODS:
+        raise ValueError("Invalid payment method")
+    if episode.is_free:
+        raise ValueError("Episode is free")
+    amount = round(float(episode.price), 2)
+    if amount <= 0:
+        raise ValueError("Invalid episode price")
+
+    payment = Payment(
+        user_id=user.id,
+        customer_name=user.username,
+        customer_email=user.email,
+        amount=amount,
+        currency="USD",
+        method=method,
+        status="pending",
+        payment_type="episode",
+        reference_id=str(episode.id),
+    )
+    db.session.add(payment)
+    db.session.flush()
+    payment.reference_note = payment.reference_code
+    payment.sync_legacy_fields()
+    db.session.commit()
+    logger.info("Created episode payment id=%s episode=%s", payment.id, episode.id)
+    return payment
+
+
 def payments_by_status(status: str | None = None, limit: int = 200) -> list[Payment]:
     q = Payment.query.order_by(Payment.created_at.desc())
     if status:
@@ -194,8 +224,17 @@ def payments_by_status(status: str | None = None, limit: int = 200) -> list[Paym
 
 
 def activate_payment_benefits(payment: Payment) -> None:
-    """Grant subscription or episode access when a plan payment is confirmed."""
-    if payment.payment_type == "plan" and payment.user_id:
+    """Grant subscription or episode access when payment is confirmed."""
+    if not payment.user_id:
+        return
+
+    if payment.payment_type == "episode" and payment.reference_id:
+        from modules.streaming.services.payment import grant_episode_purchase
+
+        grant_episode_purchase(payment.user_id, int(payment.reference_id), payment.id)
+        return
+
+    if payment.payment_type == "plan":
         from modules.streaming.services.payment import grant_subscription
 
         days = 30 if payment.reference_id == "monthly" else 365
