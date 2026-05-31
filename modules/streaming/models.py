@@ -10,6 +10,8 @@ class Series(db.Model):
     title = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
     cover_image = db.Column(db.String(500))
+    thumbnail_url = db.Column(db.String(1000))
+    hero_image_url = db.Column(db.String(1000))
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
@@ -19,6 +21,30 @@ class Series(db.Model):
     episodes = db.relationship(
         "Episode", back_populates="series", lazy="dynamic", cascade="all, delete-orphan"
     )
+
+    def first_episode_thumbnail_key(self) -> str | None:
+        ep = (
+            Episode.query.filter_by(series_id=self.id, is_active=True)
+            .order_by(Episode.id)
+            .first()
+        )
+        return ep.thumbnail_url if ep else None
+
+    def card_image_key(self) -> str | None:
+        return (
+            self.thumbnail_url
+            or self.hero_image_url
+            or self.cover_image
+            or self.first_episode_thumbnail_key()
+        )
+
+    def hero_image_key(self) -> str | None:
+        return (
+            self.hero_image_url
+            or self.thumbnail_url
+            or self.cover_image
+            or self.first_episode_thumbnail_key()
+        )
 
     def __repr__(self) -> str:
         return f"<Series {self.title}>"
@@ -87,8 +113,10 @@ class Episode(db.Model):
     def display_thumbnail(self) -> str | None:
         if self.thumbnail_url:
             return self.thumbnail_url
-        if self.series and self.series.cover_image:
-            return self.series.cover_image
+        if self.series:
+            key = self.series.card_image_key()
+            if key:
+                return key
         return None
 
 

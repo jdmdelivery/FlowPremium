@@ -5,6 +5,7 @@ from modules.streaming.models import Episode, Series
 from modules.streaming.services.access import can_watch, get_episode_access_status
 from modules.streaming.services.payment import purchase_episode
 from modules.streaming.services.stream import save_progress, stream_episode_video
+from utils.media import media_url
 
 streaming_api_bp = Blueprint("streaming_api", __name__, url_prefix="/api/streaming")
 
@@ -18,6 +19,9 @@ def list_series():
             "title": s.title,
             "description": s.description,
             "cover_image": s.cover_image,
+            "thumbnail_url": s.thumbnail_url,
+            "hero_image_url": s.hero_image_url,
+            "card_image_url": media_url(s.card_image_key()),
         }
         for s in series
     ])

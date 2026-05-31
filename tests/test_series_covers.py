@@ -101,10 +101,11 @@ def test_display_thumbnail_falls_back_to_own_series(app, sample_content):
 
         series = Series.query.get(sample_content["series_id"])
         series.cover_image = "storage/streaming/series/x/cover.jpg"
+        series.hero_image_url = "storage/streaming/series/x/cover.jpg"
         ep = Episode.query.get(sample_content["free_episode_id"])
         ep.thumbnail_url = None
         ep.series = series
-        assert ep.display_thumbnail() == series.cover_image
+        assert ep.display_thumbnail() == series.hero_image_url
 
         ep.thumbnail_url = "storage/streaming/covers/1/ep-thumb.jpg"
         assert ep.display_thumbnail() == ep.thumbnail_url

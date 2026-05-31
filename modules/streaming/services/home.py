@@ -17,11 +17,20 @@ def _series_badge(episodes: list) -> str:
 
 
 def enrich_series(series: Series) -> dict:
-    episodes = Episode.query.filter_by(series_id=series.id, is_active=True).all()
+    episodes = (
+        Episode.query.filter_by(series_id=series.id, is_active=True)
+        .order_by(Episode.id)
+        .all()
+    )
+    first_thumb = next((e.thumbnail_url for e in episodes if e.thumbnail_url), None)
+    card_key = series.thumbnail_url or series.hero_image_url or series.cover_image or first_thumb
+    hero_key = series.hero_image_url or series.thumbnail_url or series.cover_image or first_thumb
     return {
         "series": series,
         "episode_count": len(episodes),
         "badge": _series_badge(episodes),
+        "card_image_key": card_key,
+        "hero_image_key": hero_key,
     }
 
 

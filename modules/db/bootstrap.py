@@ -247,6 +247,39 @@ def sync_postgres_sequences() -> None:
     db.session.commit()
 
 
+def migrate_stream_series() -> None:
+    inspector = inspect(db.engine)
+    if "stream_series" not in inspector.get_table_names():
+        return
+
+    columns = {col["name"] for col in inspector.get_columns("stream_series")}
+    for name, col_type in (
+        ("thumbnail_url", "VARCHAR(1000)"),
+        ("hero_image_url", "VARCHAR(1000)"),
+    ):
+        if name not in columns:
+            db.session.execute(text(f"ALTER TABLE stream_series ADD COLUMN {name} {col_type}"))
+
+    columns = {col["name"] for col in inspector.get_columns("stream_series")}
+    if "hero_image_url" in columns and "cover_image" in columns:
+        db.session.execute(
+            text(
+                "UPDATE stream_series SET hero_image_url = cover_image "
+                "WHERE (hero_image_url IS NULL OR TRIM(hero_image_url) = '') "
+                "AND cover_image IS NOT NULL AND TRIM(cover_image) != ''"
+            )
+        )
+    if "thumbnail_url" in columns and "hero_image_url" in columns:
+        db.session.execute(
+            text(
+                "UPDATE stream_series SET thumbnail_url = hero_image_url "
+                "WHERE (thumbnail_url IS NULL OR TRIM(thumbnail_url) = '') "
+                "AND hero_image_url IS NOT NULL AND TRIM(hero_image_url) != ''"
+            )
+        )
+    db.session.commit()
+
+
 def init_database(app) -> None:
     """Create stream_* tables and apply non-destructive migrations."""
     import models.user  # noqa: F401
@@ -257,6 +290,7 @@ def init_database(app) -> None:
     copy_legacy_catalog_if_empty()
     migrate_stream_payments()
     migrate_stream_episodes()
+    migrate_stream_series()
     sync_postgres_sequences()
 
     from modules.db.diagnostics import log_persistence_startup

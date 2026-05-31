@@ -5,6 +5,7 @@ import logging
 from flask import Blueprint, jsonify
 
 from modules.db.diagnostics import get_debug_db_info, get_debug_storage_info
+from utils.media import get_series_media_debug
 from utils.auth import admin_required
 
 logger = logging.getLogger(__name__)
@@ -49,3 +50,13 @@ def debug_storage():
                 "error": str(exc),
             }
         ), 200
+
+
+@db_admin_bp.route("/debug-media/<int:series_id>")
+@admin_required
+def debug_media(series_id: int):
+    try:
+        return jsonify(get_series_media_debug(series_id))
+    except Exception as exc:
+        logger.exception("debug-media failed")
+        return jsonify({"series_id": series_id, "error": str(exc)}), 200

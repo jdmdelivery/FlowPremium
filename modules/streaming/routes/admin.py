@@ -13,10 +13,10 @@ from modules.streaming.upload import (
     delete_episode_media,
     delete_episode_thumbnail,
     delete_episode_video,
-    delete_storage_file,
+    delete_series_media,
     save_episode_thumbnail,
     save_episode_video,
-    save_image,
+    save_series_cover,
 )
 from utils.auth import admin_required
 
@@ -61,9 +61,12 @@ def series_form(series_id=None):
         cover = request.files.get("cover_image")
         if cover and cover.filename:
             try:
-                if series.cover_image:
-                    delete_storage_file(series.cover_image)
-                series.cover_image = save_image(cover, kind="series", entity_id=series.id)
+                if series.hero_image_url or series.thumbnail_url or series.cover_image:
+                    delete_series_media(series)
+                hero_key, thumb_key = save_series_cover(cover, series.id)
+                series.hero_image_url = hero_key
+                series.thumbnail_url = thumb_key
+                series.cover_image = None
             except ValueError as e:
                 flash(str(e), "error")
                 return render_template("streaming/admin/series_form.html", series=series)

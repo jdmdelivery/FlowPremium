@@ -1,6 +1,6 @@
 from extensions import db
 from modules.streaming.models import Episode, EpisodePurchase, Payment, Season, Series, WatchProgress
-from modules.streaming.upload import delete_episode_media, delete_storage_file
+from modules.streaming.upload import delete_episode_media, delete_series_media
 
 
 def _purge_episode_relations_and_files(episode: Episode) -> None:
@@ -56,8 +56,7 @@ def delete_series(series_id: int) -> bool:
         _purge_episode_relations_and_files(episode)
         db.session.delete(episode)
 
-    if series.cover_image:
-        delete_storage_file(series.cover_image)
+    delete_series_media(series)
 
     Season.query.filter_by(series_id=series_id).delete(synchronize_session=False)
     db.session.delete(series)

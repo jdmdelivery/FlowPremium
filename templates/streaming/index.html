@@ -13,9 +13,10 @@
 
 <div id="page-content" class="page-content hidden-until-loaded">
     {% if featured %}
+    {% set hero_src = media_url(featured.hero_image_key) if featured.hero_image_key else series_hero_url(featured.series) %}
     <section class="netflix-hero fade-in">
-        {% if featured.series.cover_image %}
-        <div class="netflix-hero-bg" style="background-image: url('/media/{{ featured.series.cover_image }}')"></div>
+        {% if hero_src %}
+        <div class="netflix-hero-bg" style="background-image: url('{{ hero_src }}')"></div>
         {% else %}
         <div class="netflix-hero-bg netflix-hero-bg-fallback"></div>
         {% endif %}

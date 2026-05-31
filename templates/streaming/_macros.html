@@ -1,10 +1,17 @@
+{% macro media_placeholder(title) %}
+<div class="placeholder-cover"><span class="placeholder-title">{{ title }}</span></div>
+{% endmacro %}
+
 {% macro series_card(item) %}
 <a href="{{ url_for('streaming.series_detail', series_id=item.series.id) }}" class="premium-card fade-in-up">
     <div class="premium-card-cover">
-        {% if item.series.cover_image %}
-        <img src="{{ media_url(item.series.cover_image) }}" alt="{{ item.series.title }}" loading="lazy">
+        {% set card_src = media_url(item.card_image_key) if item.card_image_key else series_card_url(item.series) %}
+        {% if card_src %}
+        <img src="{{ card_src }}" alt="{{ item.series.title }}" loading="lazy"
+             onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+        <div class="placeholder-cover" hidden><span class="placeholder-title">{{ item.series.title }}</span></div>
         {% else %}
-        <div class="placeholder-cover">{{ item.series.title[0] }}</div>
+        {{ media_placeholder(item.series.title) }}
         {% endif %}
         <div class="premium-card-gradient"></div>
         <div class="premium-card-hover-info">
@@ -28,13 +35,13 @@
 {% macro continue_card(item) %}
 <a href="{{ url_for('streaming.watch', episode_id=item.episode.id) }}" class="continue-card fade-in-up">
     <div class="continue-card-cover">
-        {% set thumb_src = media_url(item.episode.thumbnail_url) %}
+        {% set thumb_src = episode_thumbnail_url(item.episode) or series_card_url(item.series) %}
         {% if thumb_src %}
-        <img src="{{ thumb_src }}" alt="{{ item.episode.title }}" loading="lazy">
-        {% elif item.series.cover_image %}
-        <img src="{{ media_url(item.series.cover_image) }}" alt="{{ item.episode.title }}" loading="lazy">
+        <img src="{{ thumb_src }}" alt="{{ item.episode.title }}" loading="lazy"
+             onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+        <div class="placeholder-cover" hidden><span class="placeholder-title">{{ item.episode.title }}</span></div>
         {% else %}
-        <div class="placeholder-cover">{{ item.episode.title[0] }}</div>
+        {{ media_placeholder(item.episode.title) }}
         {% endif %}
         <div class="continue-progress" style="width: {{ item.progress_pct }}%"></div>
         <div class="continue-overlay">

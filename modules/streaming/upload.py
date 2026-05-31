@@ -73,6 +73,32 @@ def delete_episode_media(episode) -> None:
     delete_episode_thumbnail(episode)
 
 
+def delete_series_media(series) -> None:
+    from modules.storage.storage_r2 import delete_object
+
+    for field in (series.hero_image_url, series.thumbnail_url):
+        if not field:
+            continue
+        if is_local_media_url(field):
+            delete_storage_file(field)
+        else:
+            delete_object(field)
+    if series.cover_image and is_local_media_url(series.cover_image):
+        delete_storage_file(series.cover_image)
+
+
+def save_series_cover(file: FileStorage, series_id: int) -> tuple[str, str]:
+    """Upload series cover to R2; returns (hero_image_url, thumbnail_url) keys."""
+    _require_r2_for_episode_media()
+    if use_r2_storage():
+        from modules.storage.storage_r2 import upload_series_image
+
+        key = upload_series_image(file, series_id=series_id, kind="hero")
+        return key, key
+    path = save_image(file, kind="series", entity_id=series_id)
+    return path, path
+
+
 def save_episode_video(file: FileStorage, series_id: int | None = None) -> str:
     """Upload video to R2 only in production; local path only for dev tests."""
     _require_r2_for_episode_media()

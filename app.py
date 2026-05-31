@@ -106,12 +106,20 @@ def create_app(config_class=None):
     @app.context_processor
     def inject_i18n():
         from utils.i18n import get_all_translations, get_locale, t
-        from utils.media import media_url
+        from utils.media import (
+            episode_thumbnail_url,
+            media_url,
+            series_card_url,
+            series_hero_url,
+        )
         return {
             "t": t,
             "locale": get_locale(),
             "translations": get_all_translations(),
             "media_url": media_url,
+            "series_card_url": series_card_url,
+            "series_hero_url": series_hero_url,
+            "episode_thumbnail_url": episode_thumbnail_url,
         }
 
     from utils.i18n import t as translate_fn

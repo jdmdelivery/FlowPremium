@@ -2,7 +2,9 @@
 {% block body_class %}series-detail-page{% endblock %}
 {% block title %}{{ series.title }} - {{ t('app_name') }}{% endblock %}
 {% block content %}
-<section class="series-hero fade-in" {% if series.cover_image %}style="background-image: url('{{ media_url(series.cover_image) }}')"{% endif %}>
+{% set hero_src = series_hero_url(series) %}
+<section class="series-hero fade-in{% if not hero_src %} series-hero-fallback{% endif %}"
+    {% if hero_src %}style="background-image: url('{{ hero_src }}')"{% endif %}>
     <div class="series-hero-content">
         <a href="{{ url_for('streaming.index') }}" class="back-link">&larr; {{ t('back') }}</a>
         <h1>{{ series.title }}</h1>
@@ -19,11 +21,17 @@
         {% set status = item.status %}
         <div class="episode-row">
             <div class="episode-thumb">
-                {% set thumb = ep.display_thumbnail() %}
-                {% if thumb %}
-                <img src="{{ media_url(thumb) }}" alt="" loading="lazy">
+                {% set thumb_src = episode_thumbnail_url(ep) %}
+                {% if thumb_src %}
+                <img src="{{ thumb_src }}" alt="" loading="lazy"
+                     onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+                <div class="placeholder-cover placeholder-cover-sm" hidden>
+                    <span class="placeholder-title">{{ ep.title }}</span>
+                </div>
                 {% else %}
-                <div class="ep-num">{{ loop.index }}</div>
+                <div class="placeholder-cover placeholder-cover-sm">
+                    <span class="placeholder-title">{{ ep.title }}</span>
+                </div>
                 {% endif %}
             </div>
             <div class="episode-info">
