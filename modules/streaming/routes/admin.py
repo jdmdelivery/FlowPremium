@@ -8,7 +8,15 @@ from modules.streaming.services.episode_form import _episode_form_context
 from modules.streaming.services.series_delete import delete_series
 from modules.streaming.services.payment import admin_grant_episode, admin_grant_subscription
 from modules.streaming.services.validation import EpisodeValidationError, validate_episode_series_season
-from modules.streaming.upload import delete_storage_file, save_image, save_video
+from modules.streaming.upload import (
+    delete_episode_media,
+    delete_episode_thumbnail,
+    delete_episode_video,
+    delete_storage_file,
+    save_episode_thumbnail,
+    save_episode_video,
+    save_image,
+)
 from utils.auth import admin_required
 
 streaming_admin_bp = Blueprint("streaming_admin", __name__, url_prefix="/admin/streaming")
@@ -173,9 +181,11 @@ def episode_form(episode_id=None):
         video = request.files.get("video")
         if video and video.filename:
             try:
-                if episode.video_path:
-                    delete_storage_file(episode.video_path)
-                episode.video_path = save_video(video, series_id=series.id)
+                if episode and (episode.video_path or episode.video_url):
+                    delete_episode_video(episode)
+                video_path, video_url = save_episode_video(video, series_id=series.id)
+                episode.video_path = video_path
+                episode.video_url = video_url
             except ValueError as e:
                 flash(str(e), "error")
                 return render_template("streaming/admin/episode_form.html", **ctx)
@@ -183,11 +193,11 @@ def episode_form(episode_id=None):
         thumb = request.files.get("thumbnail")
         if thumb and thumb.filename:
             try:
-                if episode.thumbnail:
-                    delete_storage_file(episode.thumbnail)
-                episode.thumbnail = save_image(
-                    thumb, kind="thumbnail", entity_id=series.id
-                )
+                if episode and (episode.thumbnail or episode.thumbnail_url):
+                    delete_episode_thumbnail(episode)
+                thumbnail, thumbnail_url = save_episode_thumbnail(thumb, series_id=series.id)
+                episode.thumbnail = thumbnail
+                episode.thumbnail_url = thumbnail_url
             except ValueError as e:
                 flash(str(e), "error")
                 return render_template("streaming/admin/episode_form.html", **ctx)

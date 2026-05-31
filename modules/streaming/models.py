@@ -50,7 +50,9 @@ class Episode(db.Model):
     title = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
     video_path = db.Column(db.String(500))
+    video_url = db.Column(db.String(1000))
     thumbnail = db.Column(db.String(500))
+    thumbnail_url = db.Column(db.String(1000))
     duration_seconds = db.Column(db.Integer, default=0)
     price = db.Column(db.Float, default=0.0, nullable=False)
     is_free = db.Column(db.Boolean, default=False, nullable=False)
@@ -66,8 +68,14 @@ class Episode(db.Model):
         mins, secs = divmod(self.duration_seconds or 0, 60)
         return f"{mins}:{secs:02d}"
 
+    @property
+    def has_video(self) -> bool:
+        return bool(self.video_url or self.video_path)
+
     def display_thumbnail(self) -> str | None:
-        """Episode thumbnail, or fallback to this episode's series cover only."""
+        """Raw stored thumbnail (R2 key, local path, or series cover fallback)."""
+        if self.thumbnail_url:
+            return self.thumbnail_url
         if self.thumbnail:
             return self.thumbnail
         if self.series and self.series.cover_image:

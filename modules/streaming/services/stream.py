@@ -1,9 +1,6 @@
-import json
-import os
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import datetime
 
-from flask import Response, request, send_file
+from flask import Response, redirect, request, send_file, url_for
 
 from modules.streaming.models import Episode, WatchProgress
 from modules.streaming.services.access import can_watch
@@ -20,14 +17,37 @@ def save_progress(user, episode_id: int, position: int, completed: bool = False)
         progress.completed_at = datetime.utcnow()
     progress.updated_at = datetime.utcnow()
     from extensions import db
+
     db.session.add(progress)
     db.session.commit()
     return progress
 
 
+def get_episode_stream_url(user, episode: Episode) -> str:
+    """Playback URL: presigned/public R2 URL or protected local stream API."""
+    if episode.video_url:
+        from modules.storage.storage_r2 import get_playback_url
+
+        url = get_playback_url(episode.video_url)
+        if url:
+            return url
+    return url_for("streaming_api.stream_video", episode_id=episode.id)
+
+
 def stream_episode_video(user, episode: Episode) -> Response:
     if not can_watch(user, episode):
         return Response("Forbidden", status=403)
+
+    if episode.video_url:
+        from modules.storage.storage_r2 import get_playback_url
+
+        url = get_playback_url(episode.video_url)
+        if not url:
+            return Response(
+                "Video no disponible. Cloudflare R2 no está accesible en este momento.",
+                status=503,
+            )
+        return redirect(url)
 
     if not episode.video_path:
         return Response("Video not available", status=404)

@@ -72,6 +72,14 @@ class Config:
 
     CASHAPP_TAG = os.environ.get("CASHAPP_TAG", "")
 
+    STORAGE_PROVIDER = os.environ.get("STORAGE_PROVIDER", "local").lower()
+    R2_ENDPOINT = os.environ.get("R2_ENDPOINT", "")
+    R2_ACCESS_KEY_ID = os.environ.get("R2_ACCESS_KEY_ID", "")
+    R2_SECRET_ACCESS_KEY = os.environ.get("R2_SECRET_ACCESS_KEY", "")
+    R2_BUCKET_NAME = os.environ.get("R2_BUCKET_NAME", "")
+    R2_ACCOUNT_ID = os.environ.get("R2_ACCOUNT_ID", "")
+    R2_PUBLIC_BASE_URL = os.environ.get("R2_PUBLIC_BASE_URL", "")
+
     SQUARE_ACCESS_TOKEN = os.environ.get("SQUARE_ACCESS_TOKEN", "")
     SQUARE_APPLICATION_ID = os.environ.get("SQUARE_APPLICATION_ID", "")
     SQUARE_LOCATION_ID = os.environ.get("SQUARE_LOCATION_ID", "")

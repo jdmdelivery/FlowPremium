@@ -5,7 +5,7 @@ from extensions import db
 from modules.streaming.models import Episode, EpisodePurchase, Payment, Season, Series, Subscription
 from modules.streaming.services.access import can_watch, get_episode_access_status, get_watch_progress
 from modules.streaming.services.payment import admin_grant_episode, admin_grant_subscription, purchase_episode
-from modules.streaming.services.stream import stream_episode_video
+from modules.streaming.services.stream import get_episode_stream_url, stream_episode_video
 from modules.streaming.services.home import get_home_sections, get_next_episode
 
 streaming_bp = Blueprint("streaming", __name__, url_prefix="/streaming")
@@ -64,7 +64,7 @@ def watch(episode_id):
         progress=progress,
         next_episode=next_episode,
         next_access=next_access,
-        stream_url=url_for("streaming_api.stream_video", episode_id=episode_id),
+        stream_url=get_episode_stream_url(current_user, episode),
         progress_url=url_for("streaming_api.api_progress"),
     )
 

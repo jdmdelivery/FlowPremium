@@ -9,6 +9,15 @@
         <div class="stat-card"><span>{{ stats.purchases }}</span><small>{{ t('my_purchases') }}</small></div>
         <div class="stat-card"><span>{{ stats.payments }}</span><small>{{ t('payments') }}</small></div>
     </div>
+
+    <section class="storage-panel" id="storage-panel">
+        <h2>{{ t('storage_title') }}</h2>
+        <div class="storage-status" id="storage-status-text">{{ t('storage_loading') }}</div>
+        <dl class="storage-details" id="storage-details"></dl>
+        <button type="button" class="btn" id="btn-test-r2">{{ t('storage_test_r2') }}</button>
+        <p class="admin-hint" id="storage-test-result" aria-live="polite"></p>
+    </section>
+
     <nav class="admin-nav">
         <a href="{{ url_for('streaming_admin.series_list') }}" class="btn">{{ t('series') }}</a>
         <a href="{{ url_for('streaming_admin.episodes_list') }}" class="btn">{{ t('episodes') }}</a>
@@ -17,4 +26,7 @@
         <a href="{{ url_for('streaming.index') }}" class="btn btn-outline">{{ t('streaming') }}</a>
     </nav>
 </section>
+{% endblock %}
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/admin-storage.js') }}"></script>
 {% endblock %}

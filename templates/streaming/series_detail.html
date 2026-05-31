@@ -2,7 +2,7 @@
 {% block body_class %}series-detail-page{% endblock %}
 {% block title %}{{ series.title }} - {{ t('app_name') }}{% endblock %}
 {% block content %}
-<section class="series-hero fade-in" {% if series.cover_image %}style="background-image: url('/media/{{ series.cover_image }}')"{% endif %}>
+<section class="series-hero fade-in" {% if series.cover_image %}style="background-image: url('{{ media_url(series.cover_image) }}')"{% endif %}>
     <div class="series-hero-content">
         <a href="{{ url_for('streaming.index') }}" class="back-link">&larr; {{ t('back') }}</a>
         <h1>{{ series.title }}</h1>
@@ -21,7 +21,7 @@
             <div class="episode-thumb">
                 {% set thumb = ep.display_thumbnail() %}
                 {% if thumb %}
-                <img src="/media/{{ thumb }}" alt="" loading="lazy">
+                <img src="{{ media_url(thumb) }}" alt="" loading="lazy">
                 {% else %}
                 <div class="ep-num">{{ loop.index }}</div>
                 {% endif %}

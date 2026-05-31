@@ -2,7 +2,7 @@
 <a href="{{ url_for('streaming.series_detail', series_id=item.series.id) }}" class="premium-card fade-in-up">
     <div class="premium-card-cover">
         {% if item.series.cover_image %}
-        <img src="/media/{{ item.series.cover_image }}" alt="{{ item.series.title }}" loading="lazy">
+        <img src="{{ media_url(item.series.cover_image) }}" alt="{{ item.series.title }}" loading="lazy">
         {% else %}
         <div class="placeholder-cover">{{ item.series.title[0] }}</div>
         {% endif %}
@@ -28,10 +28,11 @@
 {% macro continue_card(item) %}
 <a href="{{ url_for('streaming.watch', episode_id=item.episode.id) }}" class="continue-card fade-in-up">
     <div class="continue-card-cover">
-        {% if item.episode.thumbnail %}
-        <img src="/media/{{ item.episode.thumbnail }}" alt="{{ item.episode.title }}" loading="lazy">
+        {% set thumb_src = media_url(item.episode.thumbnail_url or item.episode.thumbnail) %}
+        {% if thumb_src %}
+        <img src="{{ thumb_src }}" alt="{{ item.episode.title }}" loading="lazy">
         {% elif item.series.cover_image %}
-        <img src="/media/{{ item.series.cover_image }}" alt="{{ item.episode.title }}" loading="lazy">
+        <img src="{{ media_url(item.series.cover_image) }}" alt="{{ item.episode.title }}" loading="lazy">
         {% else %}
         <div class="placeholder-cover">{{ item.episode.title[0] }}</div>
         {% endif %}

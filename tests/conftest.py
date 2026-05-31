@@ -31,6 +31,12 @@ def app():
         PAYPAL_CLIENT_ID = ""
         PAYPAL_CLIENT_SECRET = ""
         CASHAPP_TAG = "$TestTag"
+        STORAGE_PROVIDER = "local"
+        R2_ENDPOINT = ""
+        R2_ACCESS_KEY_ID = ""
+        R2_SECRET_ACCESS_KEY = ""
+        R2_BUCKET_NAME = ""
+        R2_PUBLIC_BASE_URL = ""
         PAYMENT_PLANS = {
             "monthly": {"name": "Monthly", "description": "Test", "amount": 9.99, "currency": "USD"},
             "annual": {"name": "Annual", "description": "Test", "amount": 99.99, "currency": "USD"},

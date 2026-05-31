@@ -14,8 +14,10 @@ def ensure_database(app: Flask) -> None:
 
     db.create_all()
     from modules.payments.db_migrate import migrate_payments_table
+    from modules.storage.db_migrate import migrate_episode_storage_columns
 
     migrate_payments_table()
+    migrate_episode_storage_columns()
     if app.config.get("TESTING"):
         return
     seed = os.environ.get("SEED_DEFAULT_USERS", "true").lower() in ("1", "true", "yes")
@@ -65,12 +67,14 @@ def create_app(config_class=None):
     from modules.streaming.routes.api import streaming_api_bp
     from modules.streaming.routes.admin import streaming_admin_bp
     from modules.payments.routes import payments_bp
+    from modules.storage.routes import storage_admin_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(streaming_bp)
     app.register_blueprint(streaming_api_bp)
     app.register_blueprint(streaming_admin_bp)
     app.register_blueprint(payments_bp)
+    app.register_blueprint(storage_admin_bp)
 
     @app.route("/")
     def home():
@@ -102,7 +106,13 @@ def create_app(config_class=None):
     @app.context_processor
     def inject_i18n():
         from utils.i18n import get_all_translations, get_locale, t
-        return {"t": t, "locale": get_locale(), "translations": get_all_translations()}
+        from utils.media import media_url
+        return {
+            "t": t,
+            "locale": get_locale(),
+            "translations": get_all_translations(),
+            "media_url": media_url,
+        }
 
     from utils.i18n import t as translate_fn
     app.jinja_env.globals["t"] = translate_fn

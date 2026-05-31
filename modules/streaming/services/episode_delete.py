@@ -2,7 +2,7 @@ from pathlib import Path
 
 from extensions import db
 from modules.streaming.models import Episode, EpisodePurchase, Payment, Season, Series, WatchProgress
-from modules.streaming.upload import delete_storage_file
+from modules.streaming.upload import delete_episode_media
 
 
 def _purge_episode_relations_and_files(episode: Episode) -> None:
@@ -32,10 +32,7 @@ def _purge_episode_relations_and_files(episode: Episode) -> None:
         if not still_linked:
             db.session.delete(payment)
 
-    if episode.video_path:
-        delete_storage_file(episode.video_path)
-    if episode.thumbnail:
-        delete_storage_file(episode.thumbnail)
+    delete_episode_media(episode)
 
 
 def delete_episode(episode_id: int) -> bool:
