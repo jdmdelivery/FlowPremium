@@ -4,7 +4,7 @@ from flask import Response, redirect, request, send_file, url_for
 
 from modules.streaming.models import Episode, WatchProgress
 from modules.streaming.services.access import can_watch
-from modules.streaming.upload import resolve_storage_path
+from modules.streaming.upload import is_local_media_url, resolve_storage_path
 
 
 def save_progress(user, episode_id: int, position: int, completed: bool = False) -> WatchProgress:
@@ -24,36 +24,24 @@ def save_progress(user, episode_id: int, position: int, completed: bool = False)
 
 
 def get_episode_stream_url(user, episode: Episode) -> str:
-    """Playback URL: presigned/public R2 URL or protected local stream API."""
-    if episode.video_url:
-        from modules.storage.storage_r2 import get_playback_url
+    """Playback URL from R2 or local stream API for dev storage paths."""
+    if not episode.video_url:
+        return url_for("streaming_api.stream_video", episode_id=episode.id)
 
-        url = get_playback_url(episode.video_url)
-        if url:
-            return url
+    if is_local_media_url(episode.video_url):
+        return url_for("streaming_api.stream_video", episode_id=episode.id)
+
+    from modules.storage.storage_r2 import get_playback_url
+
+    url = get_playback_url(episode.video_url)
+    if url:
+        return url
     return url_for("streaming_api.stream_video", episode_id=episode.id)
 
 
-def stream_episode_video(user, episode: Episode) -> Response:
-    if not can_watch(user, episode):
-        return Response("Forbidden", status=403)
-
-    if episode.video_url:
-        from modules.storage.storage_r2 import get_playback_url
-
-        url = get_playback_url(episode.video_url)
-        if not url:
-            return Response(
-                "Video no disponible. Cloudflare R2 no está accesible en este momento.",
-                status=503,
-            )
-        return redirect(url)
-
-    if not episode.video_path:
-        return Response("Video not available", status=404)
-
+def _stream_local_file(video_ref: str, episode_id: int) -> Response:
     try:
-        video_path = resolve_storage_path(episode.video_path)
+        video_path = resolve_storage_path(video_ref)
     except (ValueError, FileNotFoundError):
         return Response("Video not found", status=404)
 
@@ -65,7 +53,7 @@ def stream_episode_video(user, episode: Episode) -> Response:
             video_path,
             mimetype="video/mp4",
             conditional=True,
-            download_name=f"episode_{episode.id}.mp4",
+            download_name=f"episode_{episode_id}.mp4",
         )
 
     byte_start, byte_end = 0, file_size - 1
@@ -91,3 +79,24 @@ def stream_episode_video(user, episode: Episode) -> Response:
     resp.headers["Accept-Ranges"] = "bytes"
     resp.headers["Content-Length"] = str(length)
     return resp
+
+
+def stream_episode_video(user, episode: Episode) -> Response:
+    if not can_watch(user, episode):
+        return Response("Forbidden", status=403)
+
+    if not episode.video_url:
+        return Response("Video not available", status=404)
+
+    if is_local_media_url(episode.video_url):
+        return _stream_local_file(episode.video_url, episode.id)
+
+    from modules.storage.storage_r2 import get_playback_url
+
+    url = get_playback_url(episode.video_url)
+    if not url:
+        return Response(
+            "Video no disponible. Cloudflare R2 no está accesible en este momento.",
+            status=503,
+        )
+    return redirect(url)

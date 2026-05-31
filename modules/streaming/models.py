@@ -4,7 +4,7 @@ from extensions import db
 
 
 class Series(db.Model):
-    __tablename__ = "series"
+    __tablename__ = "stream_series"
 
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(255), nullable=False)
@@ -25,10 +25,12 @@ class Series(db.Model):
 
 
 class Season(db.Model):
-    __tablename__ = "seasons"
+    __tablename__ = "stream_seasons"
 
     id = db.Column(db.Integer, primary_key=True)
-    series_id = db.Column(db.Integer, db.ForeignKey("series.id"), nullable=False, index=True)
+    series_id = db.Column(
+        db.Integer, db.ForeignKey("stream_series.id"), nullable=False, index=True
+    )
     title = db.Column(db.String(255), nullable=False)
     season_number = db.Column(db.Integer, default=1, nullable=False)
     description = db.Column(db.Text)
@@ -42,16 +44,18 @@ class Season(db.Model):
 
 
 class Episode(db.Model):
-    __tablename__ = "episodes"
+    __tablename__ = "stream_episodes"
 
     id = db.Column(db.Integer, primary_key=True)
-    series_id = db.Column(db.Integer, db.ForeignKey("series.id"), nullable=False, index=True)
-    season_id = db.Column(db.Integer, db.ForeignKey("seasons.id"), nullable=False, index=True)
+    series_id = db.Column(
+        db.Integer, db.ForeignKey("stream_series.id"), nullable=False, index=True
+    )
+    season_id = db.Column(
+        db.Integer, db.ForeignKey("stream_seasons.id"), nullable=False, index=True
+    )
     title = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
-    video_path = db.Column(db.String(500))
     video_url = db.Column(db.String(1000))
-    thumbnail = db.Column(db.String(500))
     thumbnail_url = db.Column(db.String(1000))
     duration_seconds = db.Column(db.Integer, default=0)
     price = db.Column(db.Float, default=0.0, nullable=False)
@@ -70,26 +74,27 @@ class Episode(db.Model):
 
     @property
     def has_video(self) -> bool:
-        return bool(self.video_url or self.video_path)
+        return bool(self.video_url)
 
     def display_thumbnail(self) -> str | None:
-        """Raw stored thumbnail (R2 key, local path, or series cover fallback)."""
         if self.thumbnail_url:
             return self.thumbnail_url
-        if self.thumbnail:
-            return self.thumbnail
         if self.series and self.series.cover_image:
             return self.series.cover_image
         return None
 
 
 class EpisodePurchase(db.Model):
-    __tablename__ = "episode_purchases"
+    __tablename__ = "stream_purchases"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
-    episode_id = db.Column(db.Integer, db.ForeignKey("episodes.id"), nullable=False, index=True)
-    payment_id = db.Column(db.Integer, db.ForeignKey("payments.id"))
+    user_id = db.Column(
+        db.Integer, db.ForeignKey("stream_users.id"), nullable=False, index=True
+    )
+    episode_id = db.Column(
+        db.Integer, db.ForeignKey("stream_episodes.id"), nullable=False, index=True
+    )
+    payment_id = db.Column(db.Integer, db.ForeignKey("stream_payments.id"))
     purchased_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     user = db.relationship("User", back_populates="purchases")
@@ -100,15 +105,17 @@ class EpisodePurchase(db.Model):
 
 
 class Subscription(db.Model):
-    __tablename__ = "subscriptions"
+    __tablename__ = "stream_subscriptions"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    user_id = db.Column(
+        db.Integer, db.ForeignKey("stream_users.id"), nullable=False, index=True
+    )
     plan_type = db.Column(db.String(50), default="monthly", nullable=False)
     starts_at = db.Column(db.DateTime, nullable=False)
     expires_at = db.Column(db.DateTime, nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
-    payment_id = db.Column(db.Integer, db.ForeignKey("payments.id"))
+    payment_id = db.Column(db.Integer, db.ForeignKey("stream_payments.id"))
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     user = db.relationship("User", back_populates="subscriptions")
@@ -121,10 +128,12 @@ class Subscription(db.Model):
 
 
 class Payment(db.Model):
-    __tablename__ = "payments"
+    __tablename__ = "stream_payments"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+    user_id = db.Column(
+        db.Integer, db.ForeignKey("stream_users.id"), nullable=True, index=True
+    )
     customer_name = db.Column(db.String(255))
     customer_email = db.Column(db.String(255))
     amount = db.Column(db.Float, nullable=False)
@@ -139,7 +148,6 @@ class Payment(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     paid_at = db.Column(db.DateTime)
 
-    # Legacy columns (older deploys / migrations)
     provider = db.Column(db.String(50))
     approved_at = db.Column(db.DateTime)
 
@@ -158,21 +166,24 @@ class Payment(db.Model):
         return self.customer_name or self.customer_email or "Guest"
 
     def sync_legacy_fields(self) -> None:
-        """Keep legacy columns in sync for older code paths."""
         self.provider = self.method
         self.approved_at = self.paid_at
 
 
 class WatchProgress(db.Model):
-    __tablename__ = "watch_progress"
+    __tablename__ = "stream_watch_progress"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    episode_id = db.Column(db.Integer, db.ForeignKey("episodes.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("stream_users.id"), nullable=False)
+    episode_id = db.Column(
+        db.Integer, db.ForeignKey("stream_episodes.id"), nullable=False
+    )
     position_seconds = db.Column(db.Integer, default=0, nullable=False)
     completed = db.Column(db.Boolean, default=False, nullable=False)
     completed_at = db.Column(db.DateTime)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
 
     user = db.relationship("User", back_populates="watch_progress")
     episode = db.relationship("Episode")

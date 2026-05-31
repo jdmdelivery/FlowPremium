@@ -7,24 +7,16 @@ from config import get_config_class, validate_production_config
 from extensions import db, login_manager
 from models import get_user_by_id
 
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
 
 def ensure_database(app: Flask) -> None:
-    """Create SQLite/Postgres tables if they do not exist yet."""
-    import modules.streaming.models  # noqa: F401
+    """Create stream_* tables if missing; never drop existing data."""
+    from modules.db.bootstrap import init_database
 
-    db.create_all()
-    from modules.payments.db_migrate import migrate_payments_table
-    from modules.storage.db_migrate import migrate_episode_storage_columns
-
-    migrate_payments_table()
-    migrate_episode_storage_columns()
-    if app.config.get("TESTING"):
-        return
-    seed = os.environ.get("SEED_DEFAULT_USERS", "true").lower() in ("1", "true", "yes")
-    if seed:
-        from utils.seed_users import ensure_default_users
-
-        ensure_default_users()
+    init_database(app)
 
 
 def create_app(config_class=None):
@@ -35,15 +27,14 @@ def create_app(config_class=None):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
-    # DATABASE_URL optional: PostgreSQL if set, else sqlite:///flowpremium.db
-    if not app.config.get("TESTING"):
-        db_url = os.environ.get("DATABASE_URL")
-        if db_url and db_url.lower() not in ("null", "none", ""):
-            from config import _normalize_database_url
+    from config import ProductionConfig, _engine_options
+    from modules.db.diagnostics import resolve_app_database_uri
 
-            app.config["SQLALCHEMY_DATABASE_URI"] = _normalize_database_url(db_url)
-        else:
-            app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///flowpremium.db"
+    if not app.config.get("TESTING"):
+        production = config_class is ProductionConfig
+        db_uri = resolve_app_database_uri(production=production)
+        app.config["SQLALCHEMY_DATABASE_URI"] = db_uri
+        app.config["SQLALCHEMY_ENGINE_OPTIONS"] = _engine_options(db_uri)
 
     for folder in (
         app.config["VIDEO_FOLDER"],
@@ -68,6 +59,7 @@ def create_app(config_class=None):
     from modules.streaming.routes.admin import streaming_admin_bp
     from modules.payments.routes import payments_bp
     from modules.storage.routes import storage_admin_bp
+    from modules.db.routes import db_admin_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(streaming_bp)
@@ -75,6 +67,7 @@ def create_app(config_class=None):
     app.register_blueprint(streaming_admin_bp)
     app.register_blueprint(payments_bp)
     app.register_blueprint(storage_admin_bp)
+    app.register_blueprint(db_admin_bp)
 
     @app.route("/")
     def home():

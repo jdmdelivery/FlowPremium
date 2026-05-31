@@ -58,7 +58,6 @@ def app():
 
     with application.app_context():
         db.session.remove()
-        db.drop_all()
     try:
         os.unlink(db_path)
     except OSError:
@@ -107,7 +106,7 @@ def sample_content(app):
             is_free=False,
             is_active=True,
             price=9.99,
-            video_path="storage/streaming/videos/test.mp4",
+            video_url="storage/streaming/videos/test.mp4",
         )
         db.session.add_all([free_ep, premium_ep])
         db.session.commit()

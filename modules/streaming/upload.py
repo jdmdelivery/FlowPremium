@@ -27,51 +27,53 @@ def use_r2_storage() -> bool:
     return _use_r2()
 
 
+def is_local_media_url(value: str | None) -> bool:
+    return bool(value and value.startswith("storage/"))
+
+
 def delete_episode_video(episode) -> None:
     from modules.storage.storage_r2 import delete_object
 
-    if episode.video_path:
-        delete_storage_file(episode.video_path)
-    if episode.video_url:
+    if not episode.video_url:
+        return
+    if is_local_media_url(episode.video_url):
+        delete_storage_file(episode.video_url)
+    else:
         delete_object(episode.video_url)
 
 
 def delete_episode_thumbnail(episode) -> None:
     from modules.storage.storage_r2 import delete_object
 
-    if episode.thumbnail:
-        delete_storage_file(episode.thumbnail)
-    if episode.thumbnail_url:
+    if not episode.thumbnail_url:
+        return
+    if is_local_media_url(episode.thumbnail_url):
+        delete_storage_file(episode.thumbnail_url)
+    else:
         delete_object(episode.thumbnail_url)
 
 
 def delete_episode_media(episode) -> None:
-    """Remove episode video and thumbnail from local disk or R2."""
     delete_episode_video(episode)
     delete_episode_thumbnail(episode)
 
 
-def save_episode_video(file: FileStorage, series_id: int | None = None) -> tuple[str | None, str | None]:
-    """
-    Save episode video. Returns (video_path, video_url).
-    When R2 is active, video_path is None and video_url holds the object key.
-    """
+def save_episode_video(file: FileStorage, series_id: int | None = None) -> str:
+    """Upload video and return URL/key stored in video_url."""
     if use_r2_storage():
         from modules.storage.storage_r2 import upload_video
 
-        return None, upload_video(file, series_id=series_id)
-    return save_video(file, series_id=series_id), None
+        return upload_video(file, series_id=series_id)
+    return save_video(file, series_id=series_id)
 
 
-def save_episode_thumbnail(
-    file: FileStorage, series_id: int | None = None
-) -> tuple[str | None, str | None]:
-    """Save episode thumbnail. Returns (thumbnail, thumbnail_url)."""
+def save_episode_thumbnail(file: FileStorage, series_id: int | None = None) -> str:
+    """Upload thumbnail and return URL/key stored in thumbnail_url."""
     if use_r2_storage():
         from modules.storage.storage_r2 import upload_thumbnail
 
-        return None, upload_thumbnail(file, series_id=series_id)
-    return save_image(file, kind="thumbnail", entity_id=series_id), None
+        return upload_thumbnail(file, series_id=series_id)
+    return save_image(file, kind="thumbnail", entity_id=series_id)
 
 
 def save_video(file: FileStorage, series_id: int | None = None) -> str:
@@ -150,7 +152,6 @@ def resolve_storage_path(relative_path: str) -> Path:
 
 
 def delete_storage_file(relative_path: str) -> bool:
-    """Delete a file under storage if it exists. Returns True if file was removed."""
     if not relative_path:
         return False
     try:

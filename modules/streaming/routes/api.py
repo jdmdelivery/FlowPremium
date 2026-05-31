@@ -37,7 +37,7 @@ def list_episodes():
             "season_id": ep.season_id,
             "title": ep.title,
             "description": ep.description,
-            "thumbnail": ep.thumbnail,
+            "thumbnail": ep.thumbnail_url,
             "price": ep.price,
             "is_free": ep.is_free,
             "duration_seconds": ep.duration_seconds,

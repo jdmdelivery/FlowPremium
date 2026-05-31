@@ -14,13 +14,17 @@ def _normalize_database_url(url: str) -> str:
     return url
 
 
-def get_database_uri() -> str:
+def get_database_uri(*, production: bool = False) -> str:
     """
-    PostgreSQL when DATABASE_URL is set; otherwise SQLite (local + Render free).
+    PostgreSQL when DATABASE_URL is set; otherwise SQLite for local dev only.
     """
     url = os.environ.get("DATABASE_URL")
     if url and url.lower() not in ("null", "none", ""):
         return _normalize_database_url(url)
+    if production:
+        raise RuntimeError(
+            "DATABASE_URL must be set in production. Add your PostgreSQL URL in Render."
+        )
     return f"sqlite:///{_SQLITE_PATH}"
 
 
@@ -119,10 +123,11 @@ def get_config_class():
 
 
 def validate_production_config(config_class) -> None:
-    """Only SECRET_KEY is required in production; DATABASE_URL is optional."""
+    """SECRET_KEY and DATABASE_URL are required in production."""
     if config_class is not ProductionConfig:
         return
     if config_class.SECRET_KEY == _DEV_SECRET:
         raise RuntimeError(
             "SECRET_KEY must be set in production. Add it in Render Environment."
         )
+    get_database_uri(production=True)

@@ -181,11 +181,9 @@ def episode_form(episode_id=None):
         video = request.files.get("video")
         if video and video.filename:
             try:
-                if episode and (episode.video_path or episode.video_url):
+                if episode and episode.video_url:
                     delete_episode_video(episode)
-                video_path, video_url = save_episode_video(video, series_id=series.id)
-                episode.video_path = video_path
-                episode.video_url = video_url
+                episode.video_url = save_episode_video(video, series_id=series.id)
             except ValueError as e:
                 flash(str(e), "error")
                 return render_template("streaming/admin/episode_form.html", **ctx)
@@ -193,11 +191,9 @@ def episode_form(episode_id=None):
         thumb = request.files.get("thumbnail")
         if thumb and thumb.filename:
             try:
-                if episode and (episode.thumbnail or episode.thumbnail_url):
+                if episode and episode.thumbnail_url:
                     delete_episode_thumbnail(episode)
-                thumbnail, thumbnail_url = save_episode_thumbnail(thumb, series_id=series.id)
-                episode.thumbnail = thumbnail
-                episode.thumbnail_url = thumbnail_url
+                episode.thumbnail_url = save_episode_thumbnail(thumb, series_id=series.id)
             except ValueError as e:
                 flash(str(e), "error")
                 return render_template("streaming/admin/episode_form.html", **ctx)

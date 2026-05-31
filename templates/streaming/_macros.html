@@ -28,7 +28,7 @@
 {% macro continue_card(item) %}
 <a href="{{ url_for('streaming.watch', episode_id=item.episode.id) }}" class="continue-card fade-in-up">
     <div class="continue-card-cover">
-        {% set thumb_src = media_url(item.episode.thumbnail_url or item.episode.thumbnail) %}
+        {% set thumb_src = media_url(item.episode.thumbnail_url) %}
         {% if thumb_src %}
         <img src="{{ thumb_src }}" alt="{{ item.episode.title }}" loading="lazy">
         {% elif item.series.cover_image %}

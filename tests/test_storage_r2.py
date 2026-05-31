@@ -86,7 +86,6 @@ def test_upload_video_to_r2(mock_client_factory, app):
 def test_stream_redirects_to_r2_url(app, sample_content, admin_client):
     with app.app_context():
         ep = db.session.get(Episode, sample_content["free_episode_id"])
-        ep.video_path = None
         ep.video_url = "videos/1/test.mp4"
         db.session.commit()
         episode_id = ep.id
