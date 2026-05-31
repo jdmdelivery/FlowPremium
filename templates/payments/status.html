@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{{ t('payment_status') }} — FlowPremium{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/payments.css') }}">
+{% endblock %}
+{% block content %}
+<section class="payments-hero fade-in">
+    <h1>{{ t('payment_status') }}</h1>
+    <p>{{ payment.reference_code }} — ${{ '%.2f'|format(payment.amount) }} {{ payment.currency }}</p>
+</section>
+
+<section class="payment-status-card card-glass">
+    <span class="status-pill {{ payment.status }}">{{ t('status_' + payment.status) if payment.status in ['pending','paid','failed','cancelled'] else payment.status }}</span>
+    <ul class="status-details">
+        <li><strong>{{ t('payment_method') }}:</strong> {{ payment.method }}</li>
+        <li><strong>{{ t('payment_reference') }}:</strong> {{ payment.reference_note or payment.reference_code }}</li>
+        <li><strong>{{ t('email') }}:</strong> {{ payment.customer_email or payment.display_customer }}</li>
+        <li><strong>{{ t('created') }}:</strong> {{ payment.created_at.strftime('%Y-%m-%d %H:%M') if payment.created_at else '—' }}</li>
+        {% if payment.paid_at %}
+        <li><strong>{{ t('status_paid') }}:</strong> {{ payment.paid_at.strftime('%Y-%m-%d %H:%M') }}</li>
+        {% endif %}
+    </ul>
+    <p class="status-note">{{ t('payment_activation_note') }}</p>
+    <a href="{{ url_for('payments.payments_index') }}" class="btn btn-outline">{{ t('back') }}</a>
+</section>
+{% endblock %}

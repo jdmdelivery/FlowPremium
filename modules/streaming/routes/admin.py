@@ -21,7 +21,7 @@ def dashboard():
         "series": Series.query.count(),
         "episodes": Episode.query.count(),
         "purchases": EpisodePurchase.query.count(),
-        "payments": Payment.query.filter_by(status="approved").count(),
+        "payments": Payment.query.filter_by(status="paid").count(),
     }
     return render_template("streaming/admin/dashboard.html", stats=stats)
 

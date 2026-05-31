@@ -29,6 +29,12 @@ def app():
         SUPPORTED_LOCALES = ("es", "en")
         STRIPE_SECRET_KEY = ""
         PAYPAL_CLIENT_ID = ""
+        PAYPAL_CLIENT_SECRET = ""
+        CASHAPP_TAG = "$TestTag"
+        PAYMENT_PLANS = {
+            "monthly": {"name": "Monthly", "description": "Test", "amount": 9.99, "currency": "USD"},
+            "annual": {"name": "Annual", "description": "Test", "amount": 99.99, "currency": "USD"},
+        }
 
     application = create_app(TestConfig)
 

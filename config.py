@@ -63,6 +63,30 @@ class Config:
 
     STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
     PAYPAL_CLIENT_ID = os.environ.get("PAYPAL_CLIENT_ID", "")
+    PAYPAL_CLIENT_SECRET = os.environ.get("PAYPAL_CLIENT_SECRET", "")
+    PAYPAL_MODE = os.environ.get("PAYPAL_MODE", "sandbox")
+
+    CASHAPP_TAG = os.environ.get("CASHAPP_TAG", "")
+
+    SQUARE_ACCESS_TOKEN = os.environ.get("SQUARE_ACCESS_TOKEN", "")
+    SQUARE_APPLICATION_ID = os.environ.get("SQUARE_APPLICATION_ID", "")
+    SQUARE_LOCATION_ID = os.environ.get("SQUARE_LOCATION_ID", "")
+    SQUARE_ENV = os.environ.get("SQUARE_ENV", "sandbox")
+
+    PAYMENT_PLANS = {
+        "monthly": {
+            "name": "Plan Mensual FlowPremium",
+            "description": "Acceso premium mensual a catálogo y episodios.",
+            "amount": float(os.environ.get("PLAN_MONTHLY_AMOUNT", "9.99")),
+            "currency": "USD",
+        },
+        "annual": {
+            "name": "Plan Anual FlowPremium",
+            "description": "Acceso premium anual con mejor precio.",
+            "amount": float(os.environ.get("PLAN_ANNUAL_AMOUNT", "99.99")),
+            "currency": "USD",
+        },
+    }
 
 
 class ProductionConfig(Config):

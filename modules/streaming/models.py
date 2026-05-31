@@ -116,20 +116,43 @@ class Payment(db.Model):
     __tablename__ = "payments"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+    customer_name = db.Column(db.String(255))
+    customer_email = db.Column(db.String(255))
     amount = db.Column(db.Float, nullable=False)
     currency = db.Column(db.String(10), default="USD", nullable=False)
-    payment_type = db.Column(db.String(50), nullable=False)
-    reference_id = db.Column(db.String(255))
-    provider = db.Column(db.String(50), default="manual", nullable=False)
+    method = db.Column(db.String(50), default="manual", nullable=False)
     status = db.Column(db.String(50), default="pending", nullable=False)
+    provider_payment_id = db.Column(db.String(255))
+    reference_note = db.Column(db.String(500))
+    payment_type = db.Column(db.String(50), nullable=False, default="plan")
+    reference_id = db.Column(db.String(255))
     metadata_json = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    paid_at = db.Column(db.DateTime)
+
+    # Legacy columns (older deploys / migrations)
+    provider = db.Column(db.String(50))
     approved_at = db.Column(db.DateTime)
 
     user = db.relationship("User", back_populates="payments")
     episode_purchases = db.relationship("EpisodePurchase", back_populates="payment", lazy="dynamic")
     subscriptions = db.relationship("Subscription", back_populates="payment", lazy="dynamic")
+
+    @property
+    def reference_code(self) -> str:
+        return f"FP-{self.id:06d}"
+
+    @property
+    def display_customer(self) -> str:
+        if self.user:
+            return self.user.username
+        return self.customer_name or self.customer_email or "Guest"
+
+    def sync_legacy_fields(self) -> None:
+        """Keep legacy columns in sync for older code paths."""
+        self.provider = self.method
+        self.approved_at = self.paid_at
 
 
 class WatchProgress(db.Model):

@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}{{ t('payment_methods') }} — FlowPremium{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/payments.css') }}">
+{% endblock %}
+{% block body_class %}payments-page{% endblock %}
+{% block content %}
+<section class="payments-hero fade-in">
+    <h1>{{ t('payment_methods') }}</h1>
+    <p class="payments-subtitle">{{ t('payment_activation_note') }}</p>
+</section>
+
+<section class="payments-layout">
+    <div class="plan-picker card-glass">
+        <h2>{{ t('select_plan') }}</h2>
+        {% for plan_id, plan in plans.items() %}
+        <label class="plan-option {% if selected_plan == plan_id %}active{% endif %}">
+            <input type="radio" name="plan_id" value="{{ plan_id }}" form="checkout-form" {% if selected_plan == plan_id %}checked{% endif %}>
+            <div>
+                <strong>{{ plan.name }}</strong>
+                <span>${{ '%.2f'|format(plan.amount) }} {{ plan.currency }}</span>
+                <p>{{ plan.description }}</p>
+            </div>
+        </label>
+        {% endfor %}
+
+        <form id="checkout-form" class="checkout-fields">
+            {% if not current_user.is_authenticated %}
+            <label>{{ t('username') }}
+                <input type="text" name="customer_name" placeholder="{{ t('username') }}">
+            </label>
+            <label>{{ t('email') }} *
+                <input type="email" name="customer_email" required placeholder="you@email.com">
+            </label>
+            {% endif %}
+        </form>
+    </div>
+
+    <div class="payment-cards">
+        <article class="pay-card {% if not paypal_enabled %}disabled{% endif %}">
+            <div class="pay-card-icon paypal">PP</div>
+            <h3>PayPal</h3>
+            <p>{{ t('paypal_desc') }}</p>
+            {% if paypal_enabled %}
+            <div id="paypal-button-container"></div>
+            {% else %}
+            <span class="badge badge-muted">{{ t('not_configured') }}</span>
+            {% endif %}
+        </article>
+
+        <article class="pay-card {% if not cashapp_tag %}disabled{% endif %}">
+            <div class="pay-card-icon cashapp">$</div>
+            <h3>Cash App</h3>
+            <p>{{ t('cashapp_desc') }}</p>
+            {% if cashapp_tag %}
+            <form method="post" action="{{ url_for('payments.cashapp_start') }}">
+                <input type="hidden" name="plan_id" id="cashapp-plan" value="{{ selected_plan }}">
+                {% if not current_user.is_authenticated %}
+                <input type="hidden" name="customer_name" class="sync-name">
+                <input type="hidden" name="customer_email" class="sync-email">
+                {% endif %}
+                <button type="submit" class="btn btn-accent btn-block">{{ t('pay_with_cashapp') }}</button>
+            </form>
+            {% else %}
+            <span class="badge badge-muted">{{ t('not_configured') }}</span>
+            {% endif %}
+        </article>
+
+        {% if square_enabled and square_config %}
+        <article class="pay-card">
+            <div class="pay-card-icon square">Sq</div>
+            <h3>Cash App Pay (Square)</h3>
+            <p>{{ t('square_desc') }}</p>
+            <div id="square-cash-app-button"></div>
+        </article>
+        {% endif %}
+    </div>
+</section>
+
+<section class="status-legend card-glass">
+    <h3>{{ t('payment_status') }}</h3>
+    <div class="legend-items">
+        <span class="status-pill pending">{{ t('status_pending') }}</span>
+        <span class="status-pill paid">{{ t('status_paid') }}</span>
+        <span class="status-pill failed">{{ t('status_failed') }}</span>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/payments.js') }}" defer></script>
+{% if paypal_enabled and paypal_client_id %}
+<script src="https://www.paypal.com/sdk/js?client-id={{ paypal_client_id }}&currency=USD"></script>
+{% endif %}
+{% if square_enabled and square_config %}
+<script src="https://{{ 'sandbox.' if square_config.environment != 'production' else '' }}web.squarecdn.com/v1/square.js"></script>
+{% endif %}
+<script>
+window.FLOWPREMIUM_PAYMENTS = {
+    createOrderUrl: "{{ url_for('payments.paypal_create_order') }}",
+    captureOrderUrl: "{{ url_for('payments.paypal_capture_order') }}",
+    squareChargeUrl: "{{ url_for('payments.square_charge') }}",
+    statusUrl: "{{ url_for('payments.payment_status', payment_id=0) }}".replace('/0', ''),
+    paypalEnabled: {{ 'true' if paypal_enabled else 'false' }},
+    squareEnabled: {{ 'true' if square_enabled else 'false' }},
+    squareConfig: {{ square_config | tojson if square_config else 'null' }},
+    selectedPlan: "{{ selected_plan }}"
+};
+</script>
+{% endblock %}

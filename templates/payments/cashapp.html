@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Cash App — FlowPremium{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/payments.css') }}">
+{% endblock %}
+{% block content %}
+<section class="payments-hero fade-in">
+    <h1>{{ t('pay_with_cashapp') }}</h1>
+    <p>{{ t('payment_activation_note') }}</p>
+</section>
+
+<section class="cashapp-instructions card-glass">
+    <div class="reference-box">
+        <span class="label">{{ t('payment_reference') }}</span>
+        <strong class="reference-code">{{ payment.reference_code }}</strong>
+    </div>
+
+    <ol class="cashapp-steps">
+        <li>{{ t('cashapp_step_1') }} <strong>${{ '%.2f'|format(payment.amount) }}</strong></li>
+        <li>{{ t('cashapp_step_2') }} <strong>{{ cashapp_tag }}</strong></li>
+        <li>{{ t('cashapp_step_3') }} <strong>{{ payment.reference_code }}</strong></li>
+    </ol>
+
+    <form method="post" action="{{ url_for('payments.cashapp_confirm') }}" class="checkout-fields">
+        <input type="hidden" name="payment_id" value="{{ payment.id }}">
+        <label>{{ t('optional_reference') }}
+            <input type="text" name="reference_note" placeholder="{{ t('optional_reference_ph') }}">
+        </label>
+        <button type="submit" class="btn btn-accent">{{ t('submit_reference') }}</button>
+    </form>
+
+    <p class="status-note">
+        <span class="status-pill pending">{{ t('status_pending') }}</span>
+        {{ t('payment_activation_note') }}
+    </p>
+</section>
+{% endblock %}

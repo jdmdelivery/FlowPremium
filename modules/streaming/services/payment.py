@@ -26,9 +26,10 @@ class ManualPaymentProvider(PaymentProvider):
             amount=amount,
             payment_type=payment_type,
             reference_id=reference_id,
-            provider="manual",
+            method="manual",
             status="pending",
         )
+        payment.sync_legacy_fields()
         db.session.add(payment)
         db.session.commit()
         return {"payment_id": payment.id, "status": "pending", "provider": "manual"}
@@ -62,8 +63,9 @@ def get_payment_provider() -> PaymentProvider:
 
 
 def approve_payment(payment: Payment) -> Payment:
-    payment.status = "approved"
-    payment.approved_at = datetime.utcnow()
+    payment.status = "paid"
+    payment.paid_at = datetime.utcnow()
+    payment.sync_legacy_fields()
     db.session.commit()
     return payment
 
@@ -124,11 +126,12 @@ def admin_grant_episode(user_id: int, episode_id: int) -> EpisodePurchase:
         amount=0,
         payment_type="episode",
         reference_id=str(episode_id),
-        provider="manual",
-        status="approved",
-        approved_at=datetime.utcnow(),
+        method="manual",
+        status="paid",
+        paid_at=datetime.utcnow(),
         metadata_json=json.dumps({"granted_by": "admin"}),
     )
+    payment.sync_legacy_fields()
     db.session.add(payment)
     db.session.flush()
     return grant_episode_purchase(user_id, episode_id, payment.id)
@@ -139,11 +142,12 @@ def admin_grant_subscription(user_id: int, days: int = 30) -> Subscription:
         user_id=user_id,
         amount=0,
         payment_type="subscription",
-        provider="manual",
-        status="approved",
-        approved_at=datetime.utcnow(),
+        method="manual",
+        status="paid",
+        paid_at=datetime.utcnow(),
         metadata_json=json.dumps({"granted_by": "admin", "days": days}),
     )
+    payment.sync_legacy_fields()
     db.session.add(payment)
     db.session.flush()
     return grant_subscription(user_id, days, payment.id)

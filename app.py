@@ -13,6 +13,9 @@ def ensure_database(app: Flask) -> None:
     import modules.streaming.models  # noqa: F401
 
     db.create_all()
+    from modules.payments.db_migrate import migrate_payments_table
+
+    migrate_payments_table()
     if app.config.get("TESTING"):
         return
     seed = os.environ.get("SEED_DEFAULT_USERS", "true").lower() in ("1", "true", "yes")
@@ -61,11 +64,13 @@ def create_app(config_class=None):
     from modules.streaming.routes.public import streaming_bp
     from modules.streaming.routes.api import streaming_api_bp
     from modules.streaming.routes.admin import streaming_admin_bp
+    from modules.payments.routes import payments_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(streaming_bp)
     app.register_blueprint(streaming_api_bp)
     app.register_blueprint(streaming_admin_bp)
+    app.register_blueprint(payments_bp)
 
     @app.route("/")
     def home():

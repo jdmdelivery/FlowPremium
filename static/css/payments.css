@@ -1,0 +1,169 @@
+.payments-page .payments-hero {
+    text-align: center;
+    padding: 2.5rem 1rem 1rem;
+}
+
+.payments-subtitle {
+    color: var(--text-muted, #aaa);
+    max-width: 640px;
+    margin: 0.75rem auto 0;
+}
+
+.payments-layout {
+    display: grid;
+    grid-template-columns: minmax(280px, 360px) 1fr;
+    gap: 1.5rem;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+.card-glass {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 1.25rem;
+    backdrop-filter: blur(8px);
+}
+
+.plan-option {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.85rem;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 0.75rem;
+    cursor: pointer;
+}
+
+.plan-option.active {
+    border-color: #e50914;
+    background: rgba(229, 9, 20, 0.08);
+}
+
+.payment-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+}
+
+.pay-card {
+    background: linear-gradient(160deg, rgba(20, 20, 20, 0.95), rgba(10, 10, 10, 0.95));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 1.25rem;
+    min-height: 220px;
+}
+
+.pay-card.disabled {
+    opacity: 0.55;
+}
+
+.pay-card-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    font-weight: 800;
+    margin-bottom: 0.75rem;
+}
+
+.pay-card-icon.paypal { background: #003087; color: #ffc439; }
+.pay-card-icon.cashapp { background: #00d632; color: #000; }
+.pay-card-icon.square { background: #006aff; color: #fff; }
+
+.btn-block { width: 100%; margin-top: 0.75rem; }
+
+.status-legend { max-width: 1100px; margin: 1rem auto 2rem; padding: 1rem; }
+
+.legend-items, .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.status-pill {
+    padding: 0.25rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.status-pill.pending { background: rgba(255, 193, 7, 0.15); color: #ffc107; }
+.status-pill.paid { background: rgba(76, 175, 80, 0.15); color: #81c784; }
+.status-pill.failed, .status-pill.cancelled { background: rgba(244, 67, 54, 0.15); color: #ef5350; }
+
+.checkout-fields label {
+    display: block;
+    margin-top: 0.75rem;
+    font-size: 0.9rem;
+}
+
+.checkout-fields input {
+    width: 100%;
+    margin-top: 0.35rem;
+    padding: 0.65rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.35);
+    color: inherit;
+}
+
+.reference-box {
+    text-align: center;
+    margin-bottom: 1.25rem;
+}
+
+.reference-code {
+    display: block;
+    font-size: 2rem;
+    letter-spacing: 0.08em;
+    color: #00d632;
+    margin-top: 0.35rem;
+}
+
+.cashapp-steps { line-height: 1.8; padding-left: 1.2rem; }
+
+.payments-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem;
+    margin: 1rem 0 1.5rem;
+}
+
+.stat-card {
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 12px;
+    padding: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.filter-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.filter-tabs a {
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    text-decoration: none;
+    color: inherit;
+}
+
+.filter-tabs a.active {
+    background: #e50914;
+    border-color: #e50914;
+}
+
+.actions-cell form { display: inline-block; margin-right: 0.35rem; }
+
+@media (max-width: 860px) {
+    .payments-layout { grid-template-columns: 1fr; }
+}

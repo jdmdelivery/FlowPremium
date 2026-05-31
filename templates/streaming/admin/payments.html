@@ -53,6 +53,7 @@
         {% endfor %}
         </tbody>
     </table>
+    <a href="{{ url_for('payments.admin_payments') }}" class="btn btn-outline">{{ t('payments') }} (PayPal / Cash App)</a>
     <a href="{{ url_for('streaming_admin.dashboard') }}" class="back-link">&larr; {{ t('dashboard') }}</a>
 </section>
 {% endblock %}
