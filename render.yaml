@@ -1,5 +1,5 @@
-# Blueprint Render — SQLite por defecto (sin Postgres).
-# Para PostgreSQL más adelante: crea una DB en Render y define DATABASE_URL.
+# Blueprint Render — SQLite (plan free, sin Postgres ni disco persistente).
+# Para PostgreSQL: añade DATABASE_URL. Para disco: upgrade a plan de pago.
 
 services:
   - type: web
@@ -17,13 +17,7 @@ services:
         value: app.py
       - key: PYTHON_VERSION
         value: 3.11.9
-      - key: STORAGE_PATH
-        value: /opt/render/project/src/storage/streaming
       - key: SEED_DEFAULT_USERS
         value: "true"
       - key: SECRET_KEY
         generateValue: true
-    disk:
-      name: flowpremium-data
-      mountPath: /opt/render/project/src
-      sizeGB: 1
