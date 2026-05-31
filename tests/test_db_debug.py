@@ -35,7 +35,7 @@ def test_resolve_app_database_uri_uses_postgres_when_url_set(monkeypatch):
 
 
 def test_database_url_detected(monkeypatch):
-    from modules.db.diagnostics import database_url_detected
+    from utils.runtime_env import database_url_detected
 
     monkeypatch.delenv("DATABASE_URL", raising=False)
     assert database_url_detected() is False

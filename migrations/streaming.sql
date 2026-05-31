@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS stream_episodes (
     season_id INTEGER NOT NULL REFERENCES stream_seasons(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     description TEXT,
-    video_url VARCHAR(1000),
+    video_url_r2 VARCHAR(1000),
     thumbnail_url VARCHAR(1000),
     duration_seconds INTEGER DEFAULT 0,
     price DOUBLE PRECISION NOT NULL DEFAULT 0.0,

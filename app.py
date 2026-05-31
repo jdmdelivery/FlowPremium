@@ -28,7 +28,7 @@ def create_app(config_class=None):
     app.config.from_object(config_class)
 
     from config import ProductionConfig, _engine_options
-    from modules.db.diagnostics import resolve_app_database_uri
+    from modules.db.diagnostics import resolve_app_database_uri, get_database_type
 
     if not app.config.get("TESTING"):
         production = config_class is ProductionConfig
@@ -36,11 +36,16 @@ def create_app(config_class=None):
         app.config["SQLALCHEMY_DATABASE_URI"] = db_uri
         app.config["SQLALCHEMY_ENGINE_OPTIONS"] = _engine_options(db_uri)
 
-    for folder in (
-        app.config["VIDEO_FOLDER"],
-        app.config["THUMBNAIL_FOLDER"],
-        app.config["SERIES_COVER_FOLDER"],
-    ):
+    from utils.runtime_env import is_render, must_use_r2_storage
+
+    media_folders = [app.config["SERIES_COVER_FOLDER"]]
+    if not must_use_r2_storage():
+        media_folders = [
+            app.config["VIDEO_FOLDER"],
+            app.config["THUMBNAIL_FOLDER"],
+            app.config["SERIES_COVER_FOLDER"],
+        ]
+    for folder in media_folders:
         Path(folder).mkdir(parents=True, exist_ok=True)
 
     db.init_app(app)
@@ -48,6 +53,8 @@ def create_app(config_class=None):
 
     with app.app_context():
         ensure_database(app)
+        if is_render() and get_database_type(app.config.get("SQLALCHEMY_DATABASE_URI", "")) != "postgresql":
+            raise RuntimeError("Render deploy must use PostgreSQL via DATABASE_URL.")
 
     @login_manager.user_loader
     def load_user(user_id):

@@ -4,7 +4,7 @@ import logging
 
 from flask import Blueprint, jsonify
 
-from modules.db.diagnostics import get_debug_db_info
+from modules.db.diagnostics import get_debug_db_info, get_debug_storage_info
 from utils.auth import admin_required
 
 logger = logging.getLogger(__name__)
@@ -26,6 +26,26 @@ def debug_db():
                 "total_series": 0,
                 "total_seasons": 0,
                 "total_episodes": 0,
+                "error": str(exc),
+            }
+        ), 200
+
+
+@db_admin_bp.route("/debug-storage")
+@admin_required
+def debug_storage():
+    try:
+        return jsonify(get_debug_storage_info())
+    except Exception as exc:
+        logger.exception("debug-storage failed")
+        return jsonify(
+            {
+                "postgresql_conectado": "NO",
+                "total_series": 0,
+                "total_seasons": 0,
+                "total_episodes": 0,
+                "bucket_activo": "NO",
+                "total_objetos_r2": 0,
                 "error": str(exc),
             }
         ), 200

@@ -31,6 +31,10 @@ def storage_provider() -> str:
 
 
 def use_r2_storage() -> bool:
+    from utils.runtime_env import must_use_r2_storage
+
+    if must_use_r2_storage():
+        return True
     return storage_provider() == "r2"
 
 
@@ -87,7 +91,7 @@ def test_r2_connection() -> tuple[bool, str]:
 
 def get_storage_status() -> dict:
     """Status payload for /admin/storage-status."""
-    from modules.streaming.models import Episode, Series
+    from modules.db.diagnostics import get_catalog_counts
 
     bucket = current_app.config.get("R2_BUCKET_NAME") or ""
     configured = is_r2_configured()
@@ -107,8 +111,9 @@ def get_storage_status() -> dict:
                 message = "Error al verificar el bucket R2"
 
     try:
-        series_count = Series.query.count()
-        episodes_count = Episode.query.count()
+        counts = get_catalog_counts()
+        series_count = counts["total_series"]
+        episodes_count = counts["total_episodes"]
     except Exception:
         logger.exception("Failed to count series/episodes for storage status")
         series_count = 0
@@ -143,8 +148,33 @@ def _upload_fileobj(file_obj: BinaryIO, key: str, content_type: str) -> str:
     return key
 
 
+def count_r2_objects(prefix: str = "") -> int:
+    """Count objects in the R2 bucket (paginated)."""
+    if not is_r2_configured():
+        return 0
+    try:
+        client = _get_client()
+        total = 0
+        token = None
+        while True:
+            kwargs = {"Bucket": _bucket(), "MaxKeys": 1000}
+            if prefix:
+                kwargs["Prefix"] = prefix
+            if token:
+                kwargs["ContinuationToken"] = token
+            response = client.list_objects_v2(**kwargs)
+            total += len(response.get("Contents", []))
+            if not response.get("IsTruncated"):
+                break
+            token = response.get("NextContinuationToken")
+        return total
+    except Exception:
+        logger.exception("Failed to count R2 objects")
+        return -1
+
+
 def upload_video(file: FileStorage, series_id: int | None = None) -> str:
-    """Upload video to R2; returns object key stored in video_url."""
+    """Upload video to R2; returns object key stored in video_url_r2."""
     if not is_r2_configured():
         raise ValueError(
             "Cloudflare R2 no está disponible. Revisa las variables en Render o usa Admin → Probar conexión R2."

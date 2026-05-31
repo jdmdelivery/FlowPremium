@@ -5,6 +5,8 @@ from flask import current_app
 from PIL import Image
 from werkzeug.datastructures import FileStorage
 
+from utils.runtime_env import must_use_r2_storage
+
 
 def _allowed(filename: str, allowed: set[str]) -> bool:
     if not filename or "." not in filename:
@@ -31,15 +33,28 @@ def is_local_media_url(value: str | None) -> bool:
     return bool(value and value.startswith("storage/"))
 
 
+def _require_r2_for_episode_media() -> None:
+    if not must_use_r2_storage():
+        return
+    from modules.storage.storage_r2 import is_r2_configured
+
+    if not is_r2_configured():
+        raise ValueError(
+            "Cloudflare R2 es obligatorio en producción. "
+            "Configura STORAGE_PROVIDER=r2 y las variables R2 en Render."
+        )
+
+
 def delete_episode_video(episode) -> None:
     from modules.storage.storage_r2 import delete_object
 
-    if not episode.video_url:
+    url = episode.video_url_r2
+    if not url:
         return
-    if is_local_media_url(episode.video_url):
-        delete_storage_file(episode.video_url)
+    if is_local_media_url(url):
+        delete_storage_file(url)
     else:
-        delete_object(episode.video_url)
+        delete_object(url)
 
 
 def delete_episode_thumbnail(episode) -> None:
@@ -59,7 +74,8 @@ def delete_episode_media(episode) -> None:
 
 
 def save_episode_video(file: FileStorage, series_id: int | None = None) -> str:
-    """Upload video and return URL/key stored in video_url."""
+    """Upload video to R2 only in production; local path only for dev tests."""
+    _require_r2_for_episode_media()
     if use_r2_storage():
         from modules.storage.storage_r2 import upload_video
 
@@ -68,7 +84,7 @@ def save_episode_video(file: FileStorage, series_id: int | None = None) -> str:
 
 
 def save_episode_thumbnail(file: FileStorage, series_id: int | None = None) -> str:
-    """Upload thumbnail and return URL/key stored in thumbnail_url."""
+    _require_r2_for_episode_media()
     if use_r2_storage():
         from modules.storage.storage_r2 import upload_thumbnail
 
@@ -77,6 +93,8 @@ def save_episode_thumbnail(file: FileStorage, series_id: int | None = None) -> s
 
 
 def save_video(file: FileStorage, series_id: int | None = None) -> str:
+    if must_use_r2_storage():
+        raise ValueError("Los videos no se guardan en el servidor. Usa Cloudflare R2.")
     if not file or not file.filename:
         raise ValueError("No video file provided")
     if not _allowed(file.filename, current_app.config["ALLOWED_VIDEO_EXTENSIONS"]):
@@ -116,6 +134,8 @@ def save_image(
         if entity_id:
             folder = folder / str(entity_id)
     elif kind == "thumbnail":
+        if must_use_r2_storage():
+            raise ValueError("Las miniaturas de episodio deben subirse a Cloudflare R2.")
         folder = Path(current_app.config["THUMBNAIL_FOLDER"])
         if entity_id:
             folder = folder / str(entity_id)

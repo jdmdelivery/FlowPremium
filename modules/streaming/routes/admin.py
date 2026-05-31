@@ -3,6 +3,7 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 from extensions import db
 from models.user import User
 from modules.streaming.models import Episode, EpisodePurchase, Payment, Season, Series, Subscription
+from modules.db.diagnostics import get_catalog_counts
 from modules.streaming.services.episode_delete import delete_episode
 from modules.streaming.services.episode_form import _episode_form_context
 from modules.streaming.services.series_delete import delete_series
@@ -25,9 +26,10 @@ streaming_admin_bp = Blueprint("streaming_admin", __name__, url_prefix="/admin/s
 @streaming_admin_bp.route("/")
 @admin_required
 def dashboard():
+    counts = get_catalog_counts()
     stats = {
-        "series": Series.query.count(),
-        "episodes": Episode.query.count(),
+        "series": counts["total_series"],
+        "episodes": counts["total_episodes"],
         "purchases": EpisodePurchase.query.count(),
         "payments": Payment.query.filter_by(status="paid").count(),
     }
@@ -181,9 +183,9 @@ def episode_form(episode_id=None):
         video = request.files.get("video")
         if video and video.filename:
             try:
-                if episode and episode.video_url:
+                if episode and episode.video_url_r2:
                     delete_episode_video(episode)
-                episode.video_url = save_episode_video(video, series_id=series.id)
+                episode.video_url_r2 = save_episode_video(video, series_id=series.id)
             except ValueError as e:
                 flash(str(e), "error")
                 return render_template("streaming/admin/episode_form.html", **ctx)

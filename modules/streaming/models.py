@@ -55,7 +55,7 @@ class Episode(db.Model):
     )
     title = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
-    video_url = db.Column(db.String(1000))
+    video_url_r2 = db.Column(db.String(1000))
     thumbnail_url = db.Column(db.String(1000))
     duration_seconds = db.Column(db.Integer, default=0)
     price = db.Column(db.Float, default=0.0, nullable=False)
@@ -74,7 +74,15 @@ class Episode(db.Model):
 
     @property
     def has_video(self) -> bool:
-        return bool(self.video_url)
+        return bool(self.video_url_r2)
+
+    @property
+    def video_url(self) -> str | None:
+        return self.video_url_r2
+
+    @video_url.setter
+    def video_url(self, value: str | None) -> None:
+        self.video_url_r2 = value
 
     def display_thumbnail(self) -> str | None:
         if self.thumbnail_url:

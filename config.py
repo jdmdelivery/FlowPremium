@@ -17,11 +17,22 @@ def _normalize_database_url(url: str) -> str:
 def get_database_uri(*, production: bool = False) -> str:
     """
     PostgreSQL when DATABASE_URL is set; otherwise SQLite for local dev only.
+    On Render, PostgreSQL is always required.
     """
+    from utils.runtime_env import is_render, database_url_detected as url_detected
+
+    if is_render() and not url_detected():
+        raise RuntimeError(
+            "DATABASE_URL must be set on Render. Link your PostgreSQL database to the web service."
+        )
+
     url = os.environ.get("DATABASE_URL")
     if url and url.lower() not in ("null", "none", ""):
-        return _normalize_database_url(url)
-    if production:
+        uri = _normalize_database_url(url)
+        if uri.startswith("sqlite"):
+            raise RuntimeError("DATABASE_URL must point to PostgreSQL, not SQLite.")
+        return uri
+    if production or is_render():
         raise RuntimeError(
             "DATABASE_URL must be set in production. Add your PostgreSQL URL in Render."
         )
@@ -42,12 +53,12 @@ def _engine_options(uri: str) -> dict:
     return {"pool_pre_ping": True}
 
 
-_db_uri = get_database_uri()
+_db_uri = get_database_uri() if not os.environ.get("RENDER") else ""
 
 
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", _DEV_SECRET)
-    SQLALCHEMY_DATABASE_URI = _db_uri
+    SQLALCHEMY_DATABASE_URI = _db_uri or "sqlite:///:memory:"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = _engine_options(_db_uri)
 
@@ -76,7 +87,9 @@ class Config:
 
     CASHAPP_TAG = os.environ.get("CASHAPP_TAG", "")
 
-    STORAGE_PROVIDER = os.environ.get("STORAGE_PROVIDER", "local").lower()
+    STORAGE_PROVIDER = os.environ.get(
+        "STORAGE_PROVIDER", "r2" if os.environ.get("RENDER") else "local"
+    ).lower()
     R2_ENDPOINT = os.environ.get("R2_ENDPOINT", "")
     R2_ACCESS_KEY_ID = os.environ.get("R2_ACCESS_KEY_ID", "")
     R2_SECRET_ACCESS_KEY = os.environ.get("R2_SECRET_ACCESS_KEY", "")

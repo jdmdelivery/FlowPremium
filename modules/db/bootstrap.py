@@ -21,10 +21,29 @@ LEGACY_TABLE_RENAMES = (
     ("watch_progress", "stream_watch_progress"),
 )
 
+LEGACY_CATALOG_COPY = (
+    (
+        "series",
+        "stream_series",
+        "INSERT INTO stream_series (id, title, description, cover_image, is_active, created_at) "
+        "SELECT id, title, description, cover_image, is_active, created_at FROM series",
+    ),
+    (
+        "seasons",
+        "stream_seasons",
+        "INSERT INTO stream_seasons (id, series_id, title, season_number, description, is_active, created_at) "
+        "SELECT id, series_id, title, season_number, description, is_active, created_at FROM seasons",
+    ),
+)
+
 
 def _table_row_count(table_name: str) -> int:
     result = db.session.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
     return int(result.scalar() or 0)
+
+
+def _table_exists(table_name: str) -> bool:
+    return table_name in inspect(db.engine).get_table_names()
 
 
 def rename_legacy_tables() -> None:
@@ -64,6 +83,72 @@ def rename_legacy_tables() -> None:
                 new_count,
                 new_name,
             )
+    db.session.commit()
+
+
+def copy_legacy_catalog_if_empty() -> None:
+    """Copy rows from legacy catalog tables when stream_* tables exist but are empty."""
+    for legacy, stream, insert_sql in LEGACY_CATALOG_COPY:
+        if not _table_exists(legacy) or not _table_exists(stream):
+            continue
+        if _table_row_count(stream) > 0:
+            continue
+        if _table_row_count(legacy) == 0:
+            continue
+        db.session.execute(text(insert_sql))
+        logger.info("Copied catalog data from %s into empty %s", legacy, stream)
+
+    if _table_exists("episodes") and _table_exists("stream_episodes"):
+        if _table_row_count("stream_episodes") == 0 and _table_row_count("episodes") > 0:
+            legacy_cols = {c["name"] for c in inspect(db.engine).get_columns("episodes")}
+            stream_cols = {c["name"] for c in inspect(db.engine).get_columns("stream_episodes")}
+            video_expr = "video_url_r2"
+            if "video_url_r2" not in stream_cols:
+                video_expr = "video_url"
+            if "video_url_r2" in stream_cols:
+                if "video_url" in legacy_cols:
+                    src_video = "video_url"
+                elif "video_path" in legacy_cols:
+                    src_video = "video_path"
+                else:
+                    src_video = "NULL"
+                thumb_src = (
+                    "thumbnail_url"
+                    if "thumbnail_url" in legacy_cols
+                    else ("thumbnail" if "thumbnail" in legacy_cols else "NULL")
+                )
+                db.session.execute(
+                    text(
+                        f"INSERT INTO stream_episodes "
+                        f"(id, series_id, season_id, title, description, video_url_r2, thumbnail_url, "
+                        f"duration_seconds, price, is_free, is_active, created_at) "
+                        f"SELECT id, series_id, season_id, title, description, "
+                        f"{src_video}, {thumb_src}, duration_seconds, price, is_free, is_active, created_at "
+                        f"FROM episodes"
+                    )
+                )
+            elif "video_url" in stream_cols:
+                src_video = (
+                    "video_url"
+                    if "video_url" in legacy_cols
+                    else ("video_path" if "video_path" in legacy_cols else "NULL")
+                )
+                thumb_src = (
+                    "thumbnail_url"
+                    if "thumbnail_url" in legacy_cols
+                    else ("thumbnail" if "thumbnail" in legacy_cols else "NULL")
+                )
+                db.session.execute(
+                    text(
+                        "INSERT INTO stream_episodes "
+                        "(id, series_id, season_id, title, description, video_url, thumbnail_url, "
+                        "duration_seconds, price, is_free, is_active, created_at) "
+                        f"SELECT id, series_id, season_id, title, description, "
+                        f"{src_video}, {thumb_src}, duration_seconds, price, is_free, is_active, created_at "
+                        "FROM episodes"
+                    )
+                )
+            logger.info("Copied episode rows from legacy episodes table")
     db.session.commit()
 
 
@@ -108,27 +193,55 @@ def migrate_stream_episodes() -> None:
         return
 
     columns = {col["name"] for col in inspector.get_columns("stream_episodes")}
-    for name, col_type in (
-        ("video_url", "VARCHAR(1000)"),
-        ("thumbnail_url", "VARCHAR(1000)"),
-    ):
+    additions = {
+        "video_url_r2": "VARCHAR(1000)",
+        "video_url": "VARCHAR(1000)",
+        "thumbnail_url": "VARCHAR(1000)",
+    }
+    for name, col_type in additions.items():
         if name not in columns:
             db.session.execute(text(f"ALTER TABLE stream_episodes ADD COLUMN {name} {col_type}"))
 
-    if "video_path" in columns and "video_url" in columns:
+    columns = {col["name"] for col in inspector.get_columns("stream_episodes")}
+
+    if "video_url_r2" in columns and "video_url" in columns:
         db.session.execute(
             text(
-                "UPDATE stream_episodes SET video_url = video_path "
-                "WHERE (video_url IS NULL OR TRIM(video_url) = '') "
+                "UPDATE stream_episodes SET video_url_r2 = video_url "
+                "WHERE (video_url_r2 IS NULL OR TRIM(video_url_r2) = '') "
+                "AND video_url IS NOT NULL AND TRIM(video_url) != ''"
+            )
+        )
+    if "video_url_r2" in columns and "video_path" in columns:
+        db.session.execute(
+            text(
+                "UPDATE stream_episodes SET video_url_r2 = video_path "
+                "WHERE (video_url_r2 IS NULL OR TRIM(video_url_r2) = '') "
                 "AND video_path IS NOT NULL AND TRIM(video_path) != ''"
             )
         )
-    if "thumbnail" in columns and "thumbnail_url" in columns:
+    if "thumbnail_url" in columns and "thumbnail" in columns:
         db.session.execute(
             text(
                 "UPDATE stream_episodes SET thumbnail_url = thumbnail "
                 "WHERE (thumbnail_url IS NULL OR TRIM(thumbnail_url) = '') "
                 "AND thumbnail IS NOT NULL AND TRIM(thumbnail) != ''"
+            )
+        )
+    db.session.commit()
+
+
+def sync_postgres_sequences() -> None:
+    """Keep SERIAL sequences aligned after manual id inserts (PostgreSQL only)."""
+    if db.engine.dialect.name != "postgresql":
+        return
+    for table in ("stream_series", "stream_seasons", "stream_episodes", "stream_users"):
+        if not _table_exists(table):
+            continue
+        db.session.execute(
+            text(
+                f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), "
+                f"COALESCE((SELECT MAX(id) FROM {table}), 1), true)"
             )
         )
     db.session.commit()
@@ -141,12 +254,14 @@ def init_database(app) -> None:
 
     rename_legacy_tables()
     db.create_all()
+    copy_legacy_catalog_if_empty()
     migrate_stream_payments()
     migrate_stream_episodes()
+    sync_postgres_sequences()
 
-    from modules.db.diagnostics import log_database_startup
+    from modules.db.diagnostics import log_persistence_startup
 
-    log_database_startup(app)
+    log_persistence_startup(app)
 
     if app.config.get("TESTING"):
         return
