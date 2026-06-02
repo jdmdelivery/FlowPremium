@@ -21,9 +21,9 @@
          data-next-url="{% if next_episode %}{{ url_for('streaming.watch', episode_id=next_episode.id) }}{% endif %}"
          data-next-title="{{ next_episode.title if next_episode else '' }}">
 
-        <video id="video-player" playsinline webkit-playsinline preload="metadata" crossorigin="anonymous">
+        <video id="video-player" playsinline webkit-playsinline preload="metadata">
             {% for track in subtitle_manifest.tracks %}
-            <track kind="captions" src="{{ track.url }}" srclang="{{ track.lang }}" label="{{ track.label }}"{% if loop.first %} default{% endif %}>
+            <track kind="subtitles" src="{{ track.url }}" srclang="{{ track.lang }}" label="{{ track.label }}" default>
             {% endfor %}
         </video>
 

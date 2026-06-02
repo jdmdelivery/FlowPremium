@@ -200,6 +200,7 @@ def test_watch_page_shows_cc_and_manifest(user_client, app, sample_content):
     assert b'id="btn-cc"' in resp.data
     assert b'player-subtitle-manifest' in resp.data
     assert b'"lang": "es"' in resp.data or b'"lang":"es"' in resp.data
+    assert b'kind="subtitles"' in resp.data
     assert f"/api/streaming/subtitles/{ep_id}".encode() in resp.data
     assert b'player-subtitles.js' in resp.data
     assert b'cc-menu' in resp.data

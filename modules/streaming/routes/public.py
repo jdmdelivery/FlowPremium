@@ -7,6 +7,7 @@ from modules.streaming.services.access import can_watch, get_episode_access_stat
 from modules.streaming.services.payment import admin_grant_episode, admin_grant_subscription, purchase_episode
 from modules.streaming.services.stream import get_episode_stream_url, stream_episode_video
 from modules.streaming.services.audio_tracks import build_audio_manifest
+from modules.streaming.services.subtitle_diagnostics import log_episode_subtitle_state
 from modules.streaming.services.subtitle_manifest import build_subtitle_manifest
 from modules.streaming.services.home import get_home_sections, get_next_episode
 
@@ -58,6 +59,8 @@ def watch(episode_id):
         flash("No tienes acceso / No access", "error")
         return redirect(url_for("streaming.series_detail", series_id=episode.series_id))
     progress = get_watch_progress(current_user, episode_id) if current_user.is_authenticated else None
+    log_episode_subtitle_state(episode, context="watch")
+    subtitle_manifest = build_subtitle_manifest(episode)
     next_episode = get_next_episode(episode)
     next_access = get_episode_access_status(current_user, next_episode) if next_episode else None
     return render_template(
@@ -67,7 +70,7 @@ def watch(episode_id):
         next_episode=next_episode,
         next_access=next_access,
         stream_url=get_episode_stream_url(current_user, episode),
-        subtitle_manifest=build_subtitle_manifest(episode),
+        subtitle_manifest=subtitle_manifest,
         audio_manifest=build_audio_manifest(episode),
         progress_url=url_for("streaming_api.api_progress"),
     )

@@ -108,6 +108,4 @@ def subtitles_manifest(episode_id):
 @streaming_api_bp.route("/subtitles/<int:episode_id>", methods=["GET", "HEAD"])
 def stream_subtitles(episode_id):
     episode = Episode.query.filter_by(id=episode_id, is_active=True).first_or_404()
-    if not can_watch(current_user, episode):
-        return jsonify({"error": "Forbidden"}), 403
     return stream_episode_subtitles(current_user, episode)

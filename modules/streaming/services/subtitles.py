@@ -15,6 +15,10 @@ from flask import current_app
 
 from extensions import db
 from modules.streaming.models import Episode
+from modules.streaming.services.subtitle_diagnostics import (
+    log_episode_subtitle_state,
+    validate_vtt_content,
+)
 from modules.streaming.upload import (
     delete_episode_subtitle_lang,
     delete_episode_subtitles,
@@ -181,6 +185,9 @@ def generate_subtitles_for_episode(episode_id: int) -> None:
         vtt_es = segments_to_vtt(segments)
         if not vtt_es.strip() or vtt_es.strip() == "WEBVTT":
             raise RuntimeError("No speech detected for subtitles")
+        vtt_ok, vtt_msg = validate_vtt_content(vtt_es)
+        if not vtt_ok:
+            raise RuntimeError(f"Generated VTT invalid: {vtt_msg}")
 
         key_es = save_subtitle_vtt(vtt_es, episode.series_id, episode.id, lang="es")
         episode = db.session.get(Episode, episode_id)
@@ -193,6 +200,7 @@ def generate_subtitles_for_episode(episode_id: int) -> None:
         episode = db.session.get(Episode, episode_id)
         _sync_episode_subtitle_fields(episode, ready=True)
         db.session.commit()
+        log_episode_subtitle_state(episode, context="whisper_done")
     except Exception:
         logger.exception("Subtitle generation failed for episode %s", episode_id)
         episode = db.session.get(Episode, episode_id)
