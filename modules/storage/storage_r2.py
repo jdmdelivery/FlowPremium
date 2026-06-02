@@ -342,11 +342,14 @@ def download_object_to_path(key: str, dest: Path) -> Path:
     return dest
 
 
-def upload_subtitle_vtt(content: str, series_id: int, episode_id: int) -> str:
-    """Upload WebVTT bytes to R2; returns object key."""
+def upload_subtitle_vtt(
+    content: str, series_id: int, episode_id: int, lang: str = "es"
+) -> str:
+    """Upload WebVTT bytes to R2; returns object key (e.g. subtitle_es.vtt)."""
     if not is_r2_configured():
         raise ValueError("R2 not configured")
-    key = f"subtitles/{series_id}/{episode_id}/{uuid.uuid4().hex}.vtt"
+    safe_lang = (lang or "es").lower()[:8]
+    key = f"subtitles/{series_id}/{episode_id}/subtitle_{safe_lang}.vtt"
     data = content.encode("utf-8")
     _get_client().put_object(
         Bucket=_bucket(),

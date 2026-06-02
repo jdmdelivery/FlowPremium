@@ -64,7 +64,8 @@
         <p class="admin-hint">{{ t('hls_master_hint') }}</p>
         {% if episode and episode.subtitle_status and episode.subtitle_status != 'none' %}
         <p class="admin-hint">{{ t('subtitle_status') }}: <strong>{{ episode.subtitle_status }}</strong>
-            {% if episode.subtitle_status == 'ready' %} — {{ t('subtitle_ready') }}{% endif %}
+            {% if episode.subtitle_status == 'ready' %} — {{ t('subtitle_ready') }}{% if episode.subtitle_langs %} ({{ episode.subtitle_langs }}){% endif %}
+            {% endif %}
             {% if episode.subtitle_status == 'processing' or episode.subtitle_status == 'pending' %} — {{ t('subtitle_processing') }}{% endif %}
             {% if episode.subtitle_status == 'failed' %} — {{ t('subtitle_failed') }}{% endif %}
             {% if episode.subtitle_status == 'skipped' %} — {{ t('subtitle_skipped') }}{% endif %}

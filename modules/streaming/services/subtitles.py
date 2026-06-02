@@ -1,12 +1,14 @@
-"""Automatic subtitles via faster-whisper + ffmpeg."""
+"""Automatic multilingual subtitles: Whisper + translation."""
 
 from __future__ import annotations
 
+import json
 import logging
 import shutil
 import subprocess
 import tempfile
 import threading
+from datetime import datetime
 from pathlib import Path
 
 from flask import current_app
@@ -14,15 +16,18 @@ from flask import current_app
 from extensions import db
 from modules.streaming.models import Episode
 from modules.streaming.upload import (
-    delete_episode_subtitle,
+    delete_episode_subtitles,
     is_local_media_url,
     resolve_storage_path,
     save_subtitle_vtt,
 )
+from utils.vtt import translate_vtt
 
 logger = logging.getLogger(__name__)
 
 SUBTITLE_STATUSES = frozenset({"none", "pending", "processing", "ready", "failed", "skipped"})
+_ACTIVE_JOBS: set[int] = set()
+_JOBS_LOCK = threading.Lock()
 
 
 def is_ffmpeg_available() -> bool:
@@ -50,6 +55,12 @@ def prerequisites_ok() -> tuple[bool, str]:
     if not is_whisper_available():
         return False, "faster-whisper not installed"
     return True, "ok"
+
+
+def target_translation_langs() -> list[str]:
+    raw = current_app.config.get("SUBTITLE_TARGET_LANGS", "en")
+    langs = [x.strip().lower() for x in str(raw).split(",") if x.strip()]
+    return [lang for lang in langs if lang != "es"]
 
 
 def format_vtt_timestamp(seconds: float) -> str:
@@ -129,8 +140,18 @@ def _materialize_video(episode: Episode, tmp_dir: Path) -> Path:
     return dest
 
 
+def _sync_episode_subtitle_fields(episode: Episode, available: list[str]) -> None:
+    episode.subtitle_langs = json.dumps(available)
+    episode.subtitle_url = episode.subtitle_url_es
+    episode.subtitle_lang = "es"
+    if available:
+        episode.subtitle_status = "ready"
+        episode.subtitle_generated_at = datetime.utcnow()
+    episode.sync_legacy_subtitle_fields()
+
+
 def generate_subtitles_for_episode(episode_id: int) -> None:
-    """Run inside Flask app context (background thread)."""
+    """Whisper (ES) + translate target langs; runs in background thread."""
     ok, reason = prerequisites_ok()
     episode = db.session.get(Episode, episode_id)
     if not episode or not episode.video_url_r2:
@@ -142,43 +163,80 @@ def generate_subtitles_for_episode(episode_id: int) -> None:
         db.session.commit()
         return
 
-    language = (episode.subtitle_lang or current_app.config.get("WHISPER_LANGUAGE") or "es").strip()
+    source_lang = (
+        episode.subtitle_lang or current_app.config.get("WHISPER_LANGUAGE") or "es"
+    ).strip()[:2]
+
     episode.subtitle_status = "processing"
+    episode.subtitle_url_es = None
+    episode.subtitle_url_en = None
     episode.subtitle_url = None
+    episode.subtitle_langs = None
     db.session.commit()
 
     tmp_dir = Path(tempfile.mkdtemp(prefix=f"fp_sub_{episode_id}_"))
+    available_langs: list[str] = []
+
     try:
         video_path = _materialize_video(episode, tmp_dir)
         wav_path = tmp_dir / "audio.wav"
         _extract_audio_wav(video_path, wav_path)
-        segments = _transcribe_audio(wav_path, language)
-        vtt_content = segments_to_vtt(segments)
-        if not vtt_content.strip() or vtt_content.strip() == "WEBVTT":
+        segments = _transcribe_audio(wav_path, source_lang)
+        vtt_es = segments_to_vtt(segments)
+        if not vtt_es.strip() or vtt_es.strip() == "WEBVTT":
             raise RuntimeError("No speech detected for subtitles")
 
-        if episode.subtitle_url:
-            delete_episode_subtitle(episode)
-
-        subtitle_key = save_subtitle_vtt(vtt_content, episode.series_id, episode.id)
+        delete_episode_subtitles(episode)
+        key_es = save_subtitle_vtt(vtt_es, episode.series_id, episode.id, lang="es")
         episode = db.session.get(Episode, episode_id)
-        episode.subtitle_url = subtitle_key
-        episode.subtitle_status = "ready"
-        episode.subtitle_lang = language
+        episode.subtitle_url_es = key_es
+        episode.subtitle_url = key_es
+        available_langs.append("es")
         db.session.commit()
-        logger.info("Subtitles ready for episode %s -> %s", episode_id, subtitle_key)
-    except Exception as exc:
+        logger.info("subtitle_es.vtt ready episode=%s key=%s", episode_id, key_es)
+
+        for target in target_translation_langs():
+            if target in available_langs:
+                continue
+            try:
+                vtt_translated = translate_vtt(vtt_es, target, source_lang=source_lang)
+                key = save_subtitle_vtt(
+                    vtt_translated, episode.series_id, episode.id, lang=target
+                )
+                episode = db.session.get(Episode, episode_id)
+                if target == "en":
+                    episode.subtitle_url_en = key
+                available_langs.append(target)
+                db.session.commit()
+                logger.info(
+                    "subtitle_%s.vtt ready episode=%s key=%s", target, episode_id, key
+                )
+            except Exception:
+                logger.exception(
+                    "Translation to %s failed for episode %s; keeping Spanish only",
+                    target,
+                    episode_id,
+                )
+
+        episode = db.session.get(Episode, episode_id)
+        _sync_episode_subtitle_fields(episode, available_langs)
+        db.session.commit()
+    except Exception:
         logger.exception("Subtitle generation failed for episode %s", episode_id)
         episode = db.session.get(Episode, episode_id)
         if episode:
-            episode.subtitle_status = "failed"
+            if available_langs:
+                _sync_episode_subtitle_fields(episode, available_langs)
+            else:
+                episode.subtitle_status = "failed"
             db.session.commit()
-        raise exc
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
+        with _JOBS_LOCK:
+            _ACTIVE_JOBS.discard(episode_id)
 
 
-def enqueue_subtitle_job(episode_id: int) -> bool:
+def enqueue_subtitle_job(episode_id: int, *, force: bool = False) -> bool:
     """Queue subtitle generation without blocking the upload request."""
     ok, reason = prerequisites_ok()
     if not ok:
@@ -193,6 +251,17 @@ def enqueue_subtitle_job(episode_id: int) -> bool:
     if not episode or not episode.video_url_r2:
         return False
 
+    with _JOBS_LOCK:
+        if episode_id in _ACTIVE_JOBS:
+            logger.info("Subtitle job already running for episode %s", episode_id)
+            return False
+        if not force and episode.subtitle_status in ("pending", "processing"):
+            return False
+        if not force and episode.subtitle_status == "ready" and episode.subtitle_url_es:
+            logger.info("Subtitles already ready for episode %s", episode_id)
+            return False
+        _ACTIVE_JOBS.add(episode_id)
+
     episode.subtitle_status = "pending"
     db.session.commit()
 
@@ -204,6 +273,9 @@ def enqueue_subtitle_job(episode_id: int) -> bool:
                 generate_subtitles_for_episode(episode_id)
             except Exception:
                 pass
+            finally:
+                with _JOBS_LOCK:
+                    _ACTIVE_JOBS.discard(episode_id)
 
     threading.Thread(target=_run, name=f"subtitle-{episode_id}", daemon=True).start()
     return True

@@ -16,7 +16,6 @@
     var cinemaLoading = document.getElementById('cinema-loading');
 
     var streamUrl = wrapper.dataset.streamUrl;
-    var subtitleUrl = wrapper.dataset.subtitleUrl;
     var audioManifest = null;
     try {
         var manifestEl = document.getElementById('player-audio-manifest');
@@ -39,31 +38,8 @@
         video.src = streamUrl;
     }
 
-    if (subtitleUrl && !video.querySelector('track')) {
-        var track = document.createElement('track');
-        track.kind = 'captions';
-        track.src = subtitleUrl;
-        track.srclang = 'es';
-        track.label = 'Subtítulos';
-        track.default = true;
-        video.appendChild(track);
-    }
-
-    function getCaptionTrack() {
-        for (var i = 0; i < video.textTracks.length; i++) {
-            if (video.textTracks[i].kind === 'captions' || video.textTracks[i].kind === 'subtitles') {
-                return video.textTracks[i];
-            }
-        }
-        return null;
-    }
-
-    function initCaptionsOn() {
-        var track = getCaptionTrack();
-        if (track) {
-            track.mode = 'showing';
-            if (btnCc) btnCc.classList.add('is-active');
-        }
+    if (window.FlowPremiumSubtitles) {
+        window.FlowPremiumSubtitles.init(video, episodeId, btnCc);
     }
 
     var btnAudio = document.getElementById('btn-audio');
@@ -73,17 +49,6 @@
             e.stopPropagation();
             audioTrackBar.classList.toggle('is-open');
             btnAudio.classList.toggle('is-active');
-        });
-    }
-
-    if (btnCc) {
-        btnCc.addEventListener('click', function (e) {
-            e.stopPropagation();
-            var track = getCaptionTrack();
-            if (!track) return;
-            var show = track.mode !== 'showing';
-            track.mode = show ? 'showing' : 'hidden';
-            btnCc.classList.toggle('is-active', show);
         });
     }
 
@@ -99,7 +64,6 @@
     });
 
     video.addEventListener('loadedmetadata', function () {
-        initCaptionsOn();
         if (startPos > 0 && startPos < video.duration - 5) {
             video.currentTime = startPos;
         }

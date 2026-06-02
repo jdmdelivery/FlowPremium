@@ -588,6 +588,59 @@
     border-radius: 4px;
 }
 
+.cc-control-wrap {
+    position: relative;
+}
+
+.cc-menu {
+    position: absolute;
+    bottom: calc(100% + 0.5rem);
+    right: 0;
+    min-width: 10.5rem;
+    padding: 0.35rem 0;
+    background: rgba(20, 20, 20, 0.98);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.65);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(6px);
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+    z-index: 30;
+}
+
+.cc-menu.is-open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.cc-menu-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.65rem 1rem;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.cc-menu-item:hover,
+.cc-menu-item.is-active {
+    background: rgba(229, 9, 20, 0.35);
+    color: #fff;
+}
+
+@media (max-width: 640px) {
+    .cc-menu {
+        min-width: min(92vw, 14rem);
+        right: -0.25rem;
+    }
+}
+
 video::cue {
     background: rgba(0, 0, 0, 0.75);
     color: #fff;

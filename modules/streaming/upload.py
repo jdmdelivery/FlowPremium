@@ -87,27 +87,41 @@ def delete_episode_thumbnail(episode) -> None:
         delete_object(episode.thumbnail_url)
 
 
+def delete_episode_subtitles(episode) -> None:
+    """Remove all subtitle files for an episode."""
+    keys = {
+        episode.subtitle_url,
+        episode.subtitle_url_es,
+        episode.subtitle_url_en,
+    }
+    for key in keys:
+        if not key:
+            continue
+        _delete_media_key(key)
+
+
 def delete_episode_subtitle(episode) -> None:
-    from modules.storage.storage_r2 import delete_object
-
-    if not episode.subtitle_url:
-        return
-    if is_local_media_url(episode.subtitle_url):
-        delete_storage_file(episode.subtitle_url)
-    else:
-        delete_object(episode.subtitle_url)
+    delete_episode_subtitles(episode)
 
 
-def save_subtitle_vtt(content: str, series_id: int, episode_id: int) -> str:
+def save_subtitle_vtt(
+    content: str, series_id: int, episode_id: int, lang: str = "es"
+) -> str:
     """Persist WebVTT; returns storage key or local relative path."""
+    safe_lang = (lang or "es").lower()[:8]
     if use_r2_storage():
         from modules.storage.storage_r2 import upload_subtitle_vtt
 
-        return upload_subtitle_vtt(content, series_id, episode_id)
+        return upload_subtitle_vtt(content, series_id, episode_id, lang=safe_lang)
 
-    folder = Path(current_app.config["UPLOAD_FOLDER"]) / "subtitles" / str(series_id)
+    folder = (
+        Path(current_app.config["UPLOAD_FOLDER"])
+        / "subtitles"
+        / str(series_id)
+        / str(episode_id)
+    )
     folder.mkdir(parents=True, exist_ok=True)
-    dest = folder / f"episode_{episode_id}.vtt"
+    dest = folder / f"subtitle_{safe_lang}.vtt"
     dest.write_text(content, encoding="utf-8")
     return _relative_path(dest)
 
@@ -116,7 +130,7 @@ def delete_episode_media(episode) -> None:
     delete_episode_video(episode)
     delete_episode_hls(episode)
     delete_episode_thumbnail(episode)
-    delete_episode_subtitle(episode)
+    delete_episode_subtitles(episode)
 
 
 def delete_series_media(series) -> None:

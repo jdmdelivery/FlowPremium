@@ -14,7 +14,7 @@ from modules.streaming.upload import (
     _delete_media_key,
     delete_episode_hls,
     delete_episode_primary_video,
-    delete_episode_subtitle,
+    delete_episode_subtitles,
     delete_episode_thumbnail,
     delete_episode_video,
     delete_series_media,
@@ -197,8 +197,12 @@ def episode_form(episode_id=None):
                 faststart_warn = warn_if_mp4_not_faststart(video)
                 if episode and episode.video_url_r2:
                     delete_episode_primary_video(episode)
-                    delete_episode_subtitle(episode)
+                    delete_episode_subtitles(episode)
                     episode.subtitle_url = None
+                    episode.subtitle_url_es = None
+                    episode.subtitle_url_en = None
+                    episode.subtitle_langs = None
+                    episode.subtitle_generated_at = None
                     episode.subtitle_status = "none"
                 episode.video_url_r2 = save_episode_video(video, series_id=series.id, lang="es")
                 if faststart_warn:

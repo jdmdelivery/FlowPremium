@@ -6,6 +6,7 @@ from modules.streaming.services.access import can_watch, get_episode_access_stat
 from modules.streaming.services.payment import purchase_episode
 from modules.streaming.services.stream import save_progress, stream_episode_video
 from modules.streaming.services.audio_tracks import build_audio_manifest
+from modules.streaming.services.subtitle_manifest import build_subtitle_manifest
 from modules.streaming.services.subtitle_stream import stream_episode_subtitles
 from utils.media import media_url
 
@@ -94,6 +95,14 @@ def audio_tracks(episode_id):
     if not can_watch(current_user, episode):
         return jsonify({"error": "Forbidden"}), 403
     return jsonify(build_audio_manifest(episode))
+
+
+@streaming_api_bp.route("/subtitles-manifest/<int:episode_id>")
+def subtitles_manifest(episode_id):
+    episode = Episode.query.filter_by(id=episode_id, is_active=True).first_or_404()
+    if not can_watch(current_user, episode):
+        return jsonify({"error": "Forbidden"}), 403
+    return jsonify(build_subtitle_manifest(episode))
 
 
 @streaming_api_bp.route("/subtitles/<int:episode_id>", methods=["GET", "HEAD"])

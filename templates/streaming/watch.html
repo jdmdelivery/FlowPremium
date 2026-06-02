@@ -15,7 +15,6 @@
 
     <div class="cinema-player-stage fade-in-up" id="player-wrapper"
          data-stream-url="{{ stream_url }}"
-         data-subtitle-url="{{ subtitle_url or '' }}"
          data-progress-url="{{ progress_url }}"
          data-episode-id="{{ episode.id }}"
          data-start="{{ progress.position_seconds if progress else 0 }}"
@@ -23,9 +22,9 @@
          data-next-title="{{ next_episode.title if next_episode else '' }}">
 
         <video id="video-player" playsinline webkit-playsinline preload="metadata" crossorigin="anonymous">
-            {% if subtitle_url %}
-            <track kind="captions" src="{{ subtitle_url }}" srclang="{{ episode.subtitle_lang or 'es' }}" label="{{ t('subtitles') }}" default>
-            {% endif %}
+            {% for track in subtitle_manifest.tracks %}
+            <track kind="captions" src="{{ track.url }}" srclang="{{ track.lang }}" label="{{ track.label }}"{% if loop.first %} default{% endif %}>
+            {% endfor %}
         </video>
 
         <div class="cinema-controls" id="cinema-controls">
@@ -44,7 +43,10 @@
                 </div>
                 <div class="cinema-controls-right">
                     <button type="button" id="btn-audio" class="cinema-btn cinema-btn-audio" aria-label="{{ t('audio_language') }}" {% if not audio_manifest.show_selector %}hidden{% endif %}>🔊</button>
-                    <button type="button" id="btn-cc" class="cinema-btn cinema-btn-cc{% if subtitle_url %} has-subtitles{% endif %}" aria-label="{{ t('subtitles') }}" {% if not subtitle_url %}hidden{% endif %}>CC</button>
+                    <div class="cc-control-wrap">
+                        <button type="button" id="btn-cc" class="cinema-btn cinema-btn-cc{% if subtitle_manifest.show_cc %} has-subtitles{% endif %}" aria-label="{{ t('subtitles') }}" aria-haspopup="true" {% if not subtitle_manifest.show_cc %}hidden{% endif %}>CC</button>
+                        <div id="cc-menu" class="cc-menu" data-off-label="{{ t('cc_off') }}" role="menu" {% if not subtitle_manifest.show_cc %}hidden{% endif %}></div>
+                    </div>
                     <button type="button" id="btn-fullscreen" class="cinema-btn" aria-label="Fullscreen">&#9974;</button>
                 </div>
             </div>
@@ -78,9 +80,11 @@
 
 {% block extra_js %}
 <script type="application/json" id="player-audio-manifest">{{ audio_manifest | tojson }}</script>
+<script type="application/json" id="player-subtitle-manifest">{{ subtitle_manifest | tojson }}</script>
 {% if audio_manifest.mode == 'hls' and audio_manifest.master_url %}
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js" defer></script>
 {% endif %}
+<script src="{{ url_for('static', filename='js/player-subtitles.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/player-audio.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/player.js') }}" defer></script>
 {% endblock %}

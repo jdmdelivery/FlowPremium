@@ -1,4 +1,4 @@
-"""Serve WebVTT subtitles with access control."""
+"""Serve WebVTT subtitles with access control (multilingual)."""
 
 from flask import Response, request
 
@@ -7,22 +7,25 @@ from modules.streaming.services.access import can_watch
 from modules.streaming.upload import is_local_media_url, resolve_storage_path
 
 
-def get_subtitle_playback_url(episode: Episode) -> str | None:
+def get_subtitle_playback_url(episode: Episode, lang: str = "es") -> str | None:
     if not episode.has_subtitles:
+        return None
+    if not episode.subtitle_storage_key(lang):
         return None
     from flask import url_for
 
-    return url_for("streaming_api.stream_subtitles", episode_id=episode.id)
+    return url_for("streaming_api.stream_subtitles", episode_id=episode.id, lang=lang)
 
 
 def stream_episode_subtitles(user, episode: Episode) -> Response:
     if not can_watch(user, episode):
         return Response("Forbidden", status=403)
 
-    if not episode.subtitle_url:
+    lang = (request.args.get("lang") or "es").lower()[:2]
+    key = episode.subtitle_storage_key(lang)
+    if not key:
         return Response("No subtitles", status=404)
 
-    key = episode.subtitle_url
     if is_local_media_url(key):
         try:
             path = resolve_storage_path(key)

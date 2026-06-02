@@ -202,8 +202,12 @@ def migrate_stream_episodes() -> None:
         "hls_url_r2": "VARCHAR(1000)",
         "audio_tracks_json": "TEXT",
         "subtitle_url": "VARCHAR(1000)",
+        "subtitle_url_es": "VARCHAR(1000)",
+        "subtitle_url_en": "VARCHAR(1000)",
         "subtitle_status": "VARCHAR(32)",
         "subtitle_lang": "VARCHAR(16)",
+        "subtitle_langs": "TEXT",
+        "subtitle_generated_at": "DATETIME",
     }
     for name, col_type in additions.items():
         if name not in columns:
@@ -215,6 +219,15 @@ def migrate_stream_episodes() -> None:
             text(
                 "UPDATE stream_episodes SET subtitle_status = 'none' "
                 "WHERE subtitle_status IS NULL OR TRIM(subtitle_status) = ''"
+            )
+        )
+    columns = {col["name"] for col in inspector.get_columns("stream_episodes")}
+    if "subtitle_url_es" in columns and "subtitle_url" in columns:
+        db.session.execute(
+            text(
+                "UPDATE stream_episodes SET subtitle_url_es = subtitle_url "
+                "WHERE (subtitle_url_es IS NULL OR TRIM(subtitle_url_es) = '') "
+                "AND subtitle_url IS NOT NULL AND TRIM(subtitle_url) != ''"
             )
         )
 

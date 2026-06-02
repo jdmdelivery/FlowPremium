@@ -87,8 +87,12 @@ class Episode(db.Model):
     audio_tracks_json = db.Column(db.Text)
     thumbnail_url = db.Column(db.String(1000))
     subtitle_url = db.Column(db.String(1000))
+    subtitle_url_es = db.Column(db.String(1000))
+    subtitle_url_en = db.Column(db.String(1000))
     subtitle_status = db.Column(db.String(32), default="none", nullable=False)
     subtitle_lang = db.Column(db.String(16), default="es")
+    subtitle_langs = db.Column(db.Text)
+    subtitle_generated_at = db.Column(db.DateTime)
     duration_seconds = db.Column(db.Integer, default=0)
     price = db.Column(db.Float, default=0.0, nullable=False)
     is_free = db.Column(db.Boolean, default=False, nullable=False)
@@ -110,7 +114,23 @@ class Episode(db.Model):
 
     @property
     def has_subtitles(self) -> bool:
-        return bool(self.subtitle_url) and self.subtitle_status == "ready"
+        return self.subtitle_status == "ready" and bool(
+            self.subtitle_url_es or self.subtitle_url or self.subtitle_url_en
+        )
+
+    def subtitle_storage_key(self, lang: str) -> str | None:
+        code = (lang or "es").lower()[:2]
+        if code == "en" and self.subtitle_url_en:
+            return self.subtitle_url_en
+        if code == "es":
+            return self.subtitle_url_es or self.subtitle_url
+        return None
+
+    def sync_legacy_subtitle_fields(self) -> None:
+        if self.subtitle_url_es and not self.subtitle_url:
+            self.subtitle_url = self.subtitle_url_es
+        if self.subtitle_url and not self.subtitle_url_es:
+            self.subtitle_url_es = self.subtitle_url
 
     @property
     def video_url(self) -> str | None:
