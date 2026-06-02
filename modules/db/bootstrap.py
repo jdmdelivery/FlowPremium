@@ -46,6 +46,55 @@ def _table_exists(table_name: str) -> bool:
     return table_name in inspect(db.engine).get_table_names()
 
 
+def _dialect_name() -> str:
+    return db.engine.dialect.name
+
+
+def _is_postgresql(dialect_name: str | None = None) -> bool:
+    return (dialect_name or _dialect_name()) == "postgresql"
+
+
+def _timestamp_column_type(dialect_name: str | None = None) -> str:
+    """PostgreSQL uses TIMESTAMPTZ; SQLite accepts DATETIME."""
+    return "TIMESTAMPTZ" if _is_postgresql(dialect_name) else "DATETIME"
+
+
+def _episode_migration_columns(dialect_name: str | None = None) -> dict[str, str]:
+    """Column types for migrate_stream_episodes(); dialect-specific where needed."""
+    ts = _timestamp_column_type(dialect_name)
+    if _is_postgresql(dialect_name):
+        return {
+            "video_url_r2": "VARCHAR(1000)",
+            "video_url": "VARCHAR(1000)",
+            "thumbnail_url": "VARCHAR(1000)",
+            "video_url_r2_en": "VARCHAR(1000)",
+            "hls_url_r2": "VARCHAR(1000)",
+            "audio_tracks_json": "TEXT",
+            "subtitle_url": "TEXT",
+            "subtitle_url_es": "TEXT",
+            "subtitle_url_en": "TEXT",
+            "subtitle_status": "VARCHAR(20)",
+            "subtitle_lang": "VARCHAR(10)",
+            "subtitle_langs": "TEXT",
+            "subtitle_generated_at": ts,
+        }
+    return {
+        "video_url_r2": "VARCHAR(1000)",
+        "video_url": "VARCHAR(1000)",
+        "thumbnail_url": "VARCHAR(1000)",
+        "video_url_r2_en": "VARCHAR(1000)",
+        "hls_url_r2": "VARCHAR(1000)",
+        "audio_tracks_json": "TEXT",
+        "subtitle_url": "VARCHAR(1000)",
+        "subtitle_url_es": "VARCHAR(1000)",
+        "subtitle_url_en": "VARCHAR(1000)",
+        "subtitle_status": "VARCHAR(32)",
+        "subtitle_lang": "VARCHAR(16)",
+        "subtitle_langs": "TEXT",
+        "subtitle_generated_at": ts,
+    }
+
+
 def rename_legacy_tables() -> None:
     """Rename pre-stream_* tables without dropping data."""
     inspector = inspect(db.engine)
@@ -165,7 +214,7 @@ def migrate_stream_payments() -> None:
         "provider_payment_id": "VARCHAR(255)",
         "reference_note": "VARCHAR(500)",
         "screenshot_url": "VARCHAR(1000)",
-        "paid_at": "DATETIME",
+        "paid_at": _timestamp_column_type(),
     }
     for name, col_type in additions.items():
         if name not in columns:
@@ -194,21 +243,7 @@ def migrate_stream_episodes() -> None:
         return
 
     columns = {col["name"] for col in inspector.get_columns("stream_episodes")}
-    additions = {
-        "video_url_r2": "VARCHAR(1000)",
-        "video_url": "VARCHAR(1000)",
-        "thumbnail_url": "VARCHAR(1000)",
-        "video_url_r2_en": "VARCHAR(1000)",
-        "hls_url_r2": "VARCHAR(1000)",
-        "audio_tracks_json": "TEXT",
-        "subtitle_url": "VARCHAR(1000)",
-        "subtitle_url_es": "VARCHAR(1000)",
-        "subtitle_url_en": "VARCHAR(1000)",
-        "subtitle_status": "VARCHAR(32)",
-        "subtitle_lang": "VARCHAR(16)",
-        "subtitle_langs": "TEXT",
-        "subtitle_generated_at": "DATETIME",
-    }
+    additions = _episode_migration_columns()
     for name, col_type in additions.items():
         if name not in columns:
             db.session.execute(text(f"ALTER TABLE stream_episodes ADD COLUMN {name} {col_type}"))
