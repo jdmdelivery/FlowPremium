@@ -361,43 +361,100 @@ def upload_subtitle_vtt(
     return key
 
 
+def object_head_meta(key: str) -> dict:
+    """HEAD object metadata (size, type) without downloading body."""
+    if not is_r2_configured():
+        raise ValueError("R2 not configured")
+    resp = _get_client().head_object(Bucket=_bucket(), Key=key)
+    content_type = resp.get("ContentType") or "application/octet-stream"
+    if not str(content_type).startswith("video/"):
+        ext = _ext(key) if "." in key else "mp4"
+        content_type = VIDEO_CONTENT_TYPES.get(ext, "video/mp4")
+    return {
+        "content_length": int(resp["ContentLength"]),
+        "content_type": content_type,
+        "etag": resp.get("ETag"),
+    }
+
+
+def _parse_range_header(range_header: str, file_size: int) -> tuple[int, int] | None:
+    import re
+
+    match = re.match(r"bytes=(\d*)-(\d*)", (range_header or "").strip())
+    if not match:
+        return None
+    start_s, end_s = match.group(1), match.group(2)
+    byte_start = int(start_s) if start_s else 0
+    byte_end = int(end_s) if end_s else file_size - 1
+    byte_end = min(byte_end, file_size - 1)
+    if byte_start > byte_end or byte_start >= file_size:
+        return None
+    return byte_start, byte_end
+
+
 def stream_object_from_r2(
     key: str,
     range_header: str | None = None,
-) -> tuple[int, dict[str, str], object]:
+    *,
+    method: str = "GET",
+) -> tuple[int, dict[str, str], bytes | object | None]:
     """
-    Stream object from R2 with optional HTTP Range (Safari/iOS requires 206).
-    Returns (status_code, headers, body_iterable).
+    Stream object from R2 with HTTP Range (Safari/iOS/Android require 206 + Content-Range).
+    Returns (status_code, headers, body). body is None for HEAD.
     """
     if not is_r2_configured():
         raise ValueError("R2 not configured")
 
-    kwargs: dict = {"Bucket": _bucket(), "Key": key}
-    if range_header:
-        kwargs["Range"] = range_header
+    meta = object_head_meta(key)
+    total_size = meta["content_length"]
+    content_type = meta["content_type"]
 
-    resp = _get_client().get_object(**kwargs)
-
-    content_type = resp.get("ContentType") or "video/mp4"
-    if not str(content_type).startswith("video/"):
-        ext = _ext(key) if "." in key else "mp4"
-        content_type = VIDEO_CONTENT_TYPES.get(ext, "video/mp4")
-
-    headers: dict[str, str] = {
+    base_headers: dict[str, str] = {
         "Accept-Ranges": "bytes",
         "Content-Type": content_type,
-        "Cache-Control": "private, max-age=3600",
+        "Cache-Control": "private, max-age=3600, no-transform",
     }
-    if resp.get("ContentLength") is not None:
-        headers["Content-Length"] = str(resp["ContentLength"])
+
+    if method.upper() == "HEAD":
+        base_headers["Content-Length"] = str(total_size)
+        return 200, base_headers, None
+
+    # Mobile browsers expect byte-range support; default to full file range → 206.
+    effective_range = range_header or f"bytes=0-{max(0, total_size - 1)}"
+
+    resp = _get_client().get_object(
+        Bucket=_bucket(),
+        Key=key,
+        Range=effective_range,
+    )
+
+    part_length = int(resp.get("ContentLength") or 0)
     content_range = resp.get("ContentRange")
+    if not content_range and total_size > 0:
+        parsed = _parse_range_header(effective_range, total_size)
+        if parsed:
+            byte_start, byte_end = parsed
+            content_range = f"bytes {byte_start}-{byte_end}/{total_size}"
+
+    headers = {
+        **base_headers,
+        "Content-Length": str(part_length),
+    }
     if content_range:
         headers["Content-Range"] = content_range
-        status = 206
-    elif range_header:
-        status = 206
-    else:
-        status = 200
+    status = 206
+
+    max_buffer = 8 * 1024 * 1024
+    if part_length <= max_buffer:
+        data = b"".join(resp["Body"].iter_chunks(chunk_size=256 * 1024))
+        if part_length and len(data) != part_length:
+            logger.warning(
+                "R2 range length mismatch key=%s expected=%s got=%s",
+                key,
+                part_length,
+                len(data),
+            )
+        return status, headers, data
 
     return status, headers, resp["Body"].iter_chunks(chunk_size=256 * 1024)
 

@@ -55,15 +55,54 @@
     /* Mobile: attempt landscape-friendly fullscreen on play */
     var isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 
+    function logVideo(msg, detail) {
+        if (detail !== undefined) {
+            console.info('[FlowPremium Video]', msg, detail);
+        } else {
+            console.info('[FlowPremium Video]', msg);
+        }
+    }
+
+    function logVideoError(msg, detail) {
+        if (detail !== undefined) {
+            console.error('[FlowPremium Video]', msg, detail);
+        } else {
+            console.error('[FlowPremium Video]', msg);
+        }
+    }
+
+    logVideo('stream url', streamUrl);
+
     video.addEventListener('loadstart', function () {
         if (cinemaLoading) cinemaLoading.classList.remove('is-hidden');
+        logVideo('loadstart');
     });
 
     video.addEventListener('canplay', function () {
         if (cinemaLoading) cinemaLoading.classList.add('is-hidden');
+        logVideo('canplay', { duration: video.duration, readyState: video.readyState });
     });
 
-    video.addEventListener('loadedmetadata', function () {
+    video.addEventListener('stalled', function () {
+        logVideoError('stalled — waiting for data', {
+            networkState: video.networkState,
+            readyState: video.readyState,
+            currentTime: video.currentTime
+        });
+    });
+
+    video.addEventListener('error', function () {
+        var err = video.error;
+        logVideoError('playback error', {
+            code: err ? err.code : null,
+            message: err ? err.message : null,
+            src: video.currentSrc || video.src
+        });
+        if (cinemaLoading) cinemaLoading.classList.add('is-hidden');
+    });
+
+    video.addEventListener('loadedmetadata', function onMetaResume() {
+        logVideo('loadedmetadata', { duration: video.duration });
         if (startPos > 0 && startPos < video.duration - 5) {
             video.currentTime = startPos;
         }

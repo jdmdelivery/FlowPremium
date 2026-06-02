@@ -90,10 +90,10 @@ def test_stream_proxies_r2_with_range(app, sample_content, admin_client):
         db.session.commit()
         episode_id = ep.id
 
-    mock_body = MagicMock()
-    mock_body.iter_chunks.return_value = [b"data"]
-
     with patch("modules.storage.storage_r2.is_r2_configured", return_value=True), patch(
+        "modules.streaming.services.stream._should_stream_from_r2",
+        return_value=True,
+    ), patch(
         "modules.storage.storage_r2.stream_object_from_r2",
         return_value=(
             206,
@@ -103,7 +103,7 @@ def test_stream_proxies_r2_with_range(app, sample_content, admin_client):
                 "Content-Length": "4",
                 "Content-Range": "bytes 0-3/100",
             },
-            mock_body,
+            b"data",
         ),
     ) as stream_mock:
         resp = admin_client.get(
