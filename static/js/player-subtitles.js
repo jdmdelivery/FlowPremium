@@ -76,22 +76,6 @@
         if (!menu) return;
         menu.innerHTML = '';
 
-        var offBtn = document.createElement('button');
-        offBtn.type = 'button';
-        offBtn.className = 'cc-menu-item';
-        offBtn.dataset.lang = 'off';
-        offBtn.textContent = menu.dataset.offLabel || 'Off';
-        offBtn.addEventListener('click', function (e) {
-            e.stopPropagation();
-            persistLang(episodeId, 'off');
-            applyChoice(video, 'off', btnCc);
-            menu.querySelectorAll('.cc-menu-item').forEach(function (b) {
-                b.classList.toggle('is-active', b.dataset.lang === 'off');
-            });
-            closeMenu(menu);
-        });
-        menu.appendChild(offBtn);
-
         manifest.tracks.forEach(function (t) {
             var btn = document.createElement('button');
             btn.type = 'button';
@@ -109,6 +93,22 @@
             });
             menu.appendChild(btn);
         });
+
+        var offBtn = document.createElement('button');
+        offBtn.type = 'button';
+        offBtn.className = 'cc-menu-item';
+        offBtn.dataset.lang = 'off';
+        offBtn.textContent = menu.dataset.offLabel || 'Off';
+        offBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            persistLang(episodeId, 'off');
+            applyChoice(video, 'off', btnCc);
+            menu.querySelectorAll('.cc-menu-item').forEach(function (b) {
+                b.classList.toggle('is-active', b.dataset.lang === 'off');
+            });
+            closeMenu(menu);
+        });
+        menu.appendChild(offBtn);
     }
 
     function mountTracks(video, manifest) {

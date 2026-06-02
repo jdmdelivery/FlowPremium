@@ -62,14 +62,28 @@
         <p class="admin-hint">{{ t('video_en_hint') }}</p>
         <label>{{ t('hls_master') }}<input type="file" name="hls_master" accept=".m3u8,application/vnd.apple.mpegurl"></label>
         <p class="admin-hint">{{ t('hls_master_hint') }}</p>
-        {% if episode and episode.subtitle_status and episode.subtitle_status != 'none' %}
-        <p class="admin-hint">{{ t('subtitle_status') }}: <strong>{{ episode.subtitle_status }}</strong>
-            {% if episode.subtitle_status == 'ready' %} — {{ t('subtitle_ready') }}{% if episode.subtitle_langs %} ({{ episode.subtitle_langs }}){% endif %}
+        {% if episode %}
+        <div class="admin-subtitle-panel">
+            <p class="admin-hint">{{ t('subtitle_status') }}: <strong>{{ episode.subtitle_status or 'none' }}</strong>
+                {% if episode.subtitle_status == 'ready' %} — {{ t('subtitle_ready') }}{% endif %}
+                {% if episode.subtitle_status == 'processing' or episode.subtitle_status == 'pending' %} — {{ t('subtitle_processing') }}{% endif %}
+                {% if episode.subtitle_status == 'failed' %} — {{ t('subtitle_failed') }}{% endif %}
+                {% if episode.subtitle_status == 'skipped' %} — {{ t('subtitle_skipped') }}{% endif %}
+            </p>
+            {% if episode.subtitle_generated_at %}
+            <p class="admin-hint">{{ t('subtitle_generated_at') }}: {{ episode.subtitle_generated_at.strftime('%Y-%m-%d %H:%M UTC') }}</p>
             {% endif %}
-            {% if episode.subtitle_status == 'processing' or episode.subtitle_status == 'pending' %} — {{ t('subtitle_processing') }}{% endif %}
-            {% if episode.subtitle_status == 'failed' %} — {{ t('subtitle_failed') }}{% endif %}
-            {% if episode.subtitle_status == 'skipped' %} — {{ t('subtitle_skipped') }}{% endif %}
-        </p>
+            {% if episode.subtitle_langs %}
+            <p class="admin-hint">{{ t('subtitle_langs') }}: {{ episode.subtitle_langs }}</p>
+            {% endif %}
+            {% if episode.video_url_r2 %}
+            <form class="admin-inline-form" method="post" action="{{ url_for('streaming_admin.regenerate_episode_subtitles', episode_id=episode.id) }}">
+                <button type="submit" class="btn btn-outline btn-sm">{{ t('subtitle_regenerate') }}</button>
+            </form>
+            {% endif %}
+        </div>
+        <label>{{ t('subtitle_en_upload') }}<input type="file" name="subtitle_en" accept=".vtt,text/vtt"></label>
+        <p class="admin-hint">{{ t('subtitle_en_hint') }}</p>
         {% endif %}
         <label>{{ t('thumbnail') }}<input type="file" name="thumbnail" accept="image/*"></label>
         <p class="admin-hint">{{ t('episode_thumbnail_hint') }}</p>

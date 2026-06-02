@@ -1,17 +1,13 @@
-"""Subtitle language manifest for the video player."""
+"""Subtitle manifest for the player (Spanish CC + Off only)."""
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from modules.streaming.models import Episode
 
 SUBTITLE_LABELS = {
     "es": ("Español", "🇪🇸"),
-    "en": ("English", "🇺🇸"),
-    "pt": ("Português", "🇧🇷"),
-    "fr": ("Français", "🇫🇷"),
 }
 
 
@@ -23,40 +19,29 @@ def _stream_url(episode_id: int, lang: str) -> str:
     return f"/api/streaming/subtitles/{episode_id}?lang={lang}"
 
 
-def episode_subtitle_langs(episode: Episode) -> list[str]:
-    if episode.subtitle_langs:
-        try:
-            data = json.loads(episode.subtitle_langs)
-            if isinstance(data, list) and data:
-                return [str(x) for x in data]
-        except json.JSONDecodeError:
-            pass
-
-    langs: list[str] = []
-    if episode.subtitle_url_es or episode.subtitle_url:
-        langs.append("es")
-    if episode.subtitle_url_en:
-        langs.append("en")
-    return langs
-
-
 def build_subtitle_manifest(episode: Episode) -> dict[str, Any]:
-    langs = episode_subtitle_langs(episode)
-    tracks = []
-    for lang in langs:
-        label, flag = SUBTITLE_LABELS.get(lang, (lang.upper(), "💬"))
-        tracks.append(
-            {
-                "lang": lang,
-                "label": label,
-                "flag": flag,
-                "url": _stream_url(episode.id, lang),
-            }
-        )
+    """Expose only Spanish auto-subtitles in the CC menu (Español / Off)."""
+    if not episode.has_subtitles:
+        return {
+            "status": episode.subtitle_status or "none",
+            "show_cc": False,
+            "tracks": [],
+            "default_lang": None,
+        }
+
+    label, flag = SUBTITLE_LABELS["es"]
+    tracks = [
+        {
+            "lang": "es",
+            "label": label,
+            "flag": flag,
+            "url": _stream_url(episode.id, "es"),
+        }
+    ]
 
     return {
         "status": episode.subtitle_status or "none",
-        "show_cc": episode.has_subtitles and len(tracks) > 0,
+        "show_cc": True,
         "tracks": tracks,
-        "default_lang": "es" if "es" in langs else (langs[0] if langs else None),
+        "default_lang": "es",
     }

@@ -33,7 +33,7 @@
     var controlsTimer = null;
 
     if (window.FlowPremiumAudio) {
-        window.FlowPremiumAudio.init(video, audioManifest, streamUrl);
+        window.FlowPremiumAudio.init(video, audioManifest, streamUrl, episodeId);
     } else {
         video.src = streamUrl;
     }

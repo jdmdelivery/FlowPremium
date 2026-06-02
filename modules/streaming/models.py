@@ -115,7 +115,7 @@ class Episode(db.Model):
     @property
     def has_subtitles(self) -> bool:
         return self.subtitle_status == "ready" and bool(
-            self.subtitle_url_es or self.subtitle_url or self.subtitle_url_en
+            self.subtitle_url_es or self.subtitle_url
         )
 
     def subtitle_storage_key(self, lang: str) -> str | None:

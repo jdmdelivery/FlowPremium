@@ -5,6 +5,7 @@
 (function (global) {
     'use strict';
 
+    var STORAGE_KEY = 'flowpremium_audio_lang';
     var hlsInstance = null;
     var currentTrackId = null;
 
@@ -17,6 +18,30 @@
         return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
     }
 
+    function savedAudio(episodeId) {
+        try {
+            var raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return null;
+            var data = JSON.parse(raw);
+            if (!data || typeof data !== 'object') return null;
+            if (data[String(episodeId)] != null) return data[String(episodeId)];
+            return data.global || null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function persistAudio(episodeId, trackId) {
+        try {
+            var raw = localStorage.getItem(STORAGE_KEY);
+            var data = raw ? JSON.parse(raw) : {};
+            if (!data || typeof data !== 'object') data = {};
+            data.global = trackId;
+            data[String(episodeId)] = trackId;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        } catch (e) { /* private mode */ }
+    }
+
     function switchableTracks(manifest) {
         if (!manifest || !manifest.tracks) return [];
         return manifest.tracks.filter(function (track) {
@@ -27,10 +52,31 @@
     }
 
     function findTrack(manifest, trackId) {
+        if (!manifest || !manifest.tracks) return null;
         for (var i = 0; i < manifest.tracks.length; i++) {
             if (manifest.tracks[i].id === trackId) return manifest.tracks[i];
         }
         return null;
+    }
+
+    function findTrackByLang(manifest, lang) {
+        if (!manifest || !manifest.tracks) return null;
+        for (var i = 0; i < manifest.tracks.length; i++) {
+            if (manifest.tracks[i].lang === lang) return manifest.tracks[i];
+        }
+        return null;
+    }
+
+    function resolveInitialTrackId(manifest, episodeId) {
+        var tracks = switchableTracks(manifest);
+        if (!tracks.length) return manifest.default || 'es';
+        var preferred = savedAudio(episodeId);
+        if (preferred) {
+            if (findTrack(manifest, preferred)) return preferred;
+            var byLang = findTrackByLang(manifest, preferred);
+            if (byLang) return byLang.id;
+        }
+        return manifest.default || tracks[0].id;
     }
 
     function destroyHls() {
@@ -75,10 +121,12 @@
         video.load();
     }
 
-    function switchHlsTrack(video, hls, track, manifest) {
+    function applyTrack(video, manifest, track, hls) {
+        if (!track) return;
+        currentTrackId = track.id;
         if (track.type === 'hls' && track.url) {
             destroyHls();
-            setupHlsPlayer(video, track.url, manifest, track.id);
+            setupHlsPlayer(video, track.url, manifest, currentTrackId, null);
             return;
         }
         if (track.type === 'url' && track.url) {
@@ -87,12 +135,14 @@
         }
         if (track.type === 'embedded' && hls && hls.audioTracks && hls.audioTracks.length) {
             for (var i = 0; i < hls.audioTracks.length; i++) {
-                hls.audioTrack = i;
+                hls.audioTrack = track.index !== undefined ? track.index : i;
             }
             return;
         }
         if (track.type === 'embedded') {
-            switchEmbeddedTrack(video, track);
+            if (!switchEmbeddedTrack(video, track) && isMobile()) {
+                alert('En este dispositivo sube un MP4 en inglés separado o usa HLS.');
+            }
         }
     }
 
@@ -103,7 +153,7 @@
         });
     }
 
-    function renderAudioButtons(container, manifest, video, onSelect) {
+    function renderAudioButtons(container, manifest, video, episodeId, onSelect) {
         if (!container) return;
         container.innerHTML = '';
         var tracks = switchableTracks(manifest);
@@ -121,18 +171,19 @@
             btn.dataset.trackId = track.id;
             btn.setAttribute('aria-pressed', 'false');
             btn.textContent = (track.flag ? track.flag + ' ' : '') + track.label;
-            if (track.id === currentTrackId || track.id === manifest.default) {
+            if (track.id === currentTrackId) {
                 btn.classList.add('is-active');
             }
             btn.addEventListener('click', function (e) {
                 e.stopPropagation();
                 onSelect(track);
+                persistAudio(episodeId, track.id);
             });
             container.appendChild(btn);
         });
     }
 
-    function setupHlsPlayer(video, masterUrl, manifest, defaultTrackId) {
+    function setupHlsPlayer(video, masterUrl, manifest, defaultTrackId, episodeId) {
         currentTrackId = defaultTrackId || manifest.default;
 
         function onManifestParsed(hls) {
@@ -150,15 +201,16 @@
                 });
 
             var bar = document.getElementById('audio-track-options');
-            renderAudioButtons(bar, { tracks: tracks, default: currentTrackId }, video, function (track) {
-                currentTrackId = track.id;
+            renderAudioButtons(bar, { tracks: tracks, default: currentTrackId }, video, episodeId, function (track) {
                 setActiveButton(bar, track.id);
-                if (track.type === 'embedded' || (track.index !== undefined && hls.audioTracks.length)) {
-                    hls.audioTrack = track.index !== undefined ? track.index : 0;
-                } else if (track.type === 'url') {
-                    switchUrlTrack(video, track);
-                }
+                applyTrack(video, manifest, track, hls);
             });
+
+            var initial = findTrack({ tracks: tracks }, currentTrackId) || tracks[0];
+            if (initial) {
+                applyTrack(video, manifest, initial, hls);
+                setActiveButton(bar, initial.id);
+            }
 
             if (hls.audioTracks.length && !manifest.tracks) {
                 hls.audioTrack = 0;
@@ -182,36 +234,29 @@
             video.addEventListener('loadedmetadata', function onMeta() {
                 video.removeEventListener('loadedmetadata', onMeta);
                 var bar = document.getElementById('audio-track-options');
-                renderAudioButtons(bar, manifest, video, function (track) {
-                    currentTrackId = track.id;
+                renderAudioButtons(bar, manifest, video, episodeId, function (track) {
                     setActiveButton(bar, track.id);
-                    if (track.type === 'url') {
-                        switchUrlTrack(video, track);
-                    } else if (track.type === 'embedded') {
-                        if (!switchEmbeddedTrack(video, track) && track.type === 'hls') {
-                            /* Safari native HLS: try audioTracks */
-                        }
-                    }
+                    applyTrack(video, manifest, track, null);
                 });
-                if (supportsEmbeddedAudio() && video.audioTracks.length > 1) {
-                    var def = findTrack(manifest, manifest.default);
-                    if (def && def.type === 'embedded') {
-                        switchEmbeddedTrack(video, def);
-                    }
+                var initial = findTrack(manifest, currentTrackId) || switchableTracks(manifest)[0];
+                if (initial) {
+                    applyTrack(video, manifest, initial, null);
+                    setActiveButton(bar, initial.id);
                 }
             });
         }
     }
 
-    function init(video, manifest, defaultStreamUrl) {
+    function init(video, manifest, defaultStreamUrl, episodeId) {
         if (!video || !manifest) return;
 
-        currentTrackId = manifest.default || 'es';
+        episodeId = episodeId || 0;
+        currentTrackId = resolveInitialTrackId(manifest, episodeId);
         var bar = document.getElementById('audio-track-options');
         var tracks = switchableTracks(manifest);
 
         if (manifest.mode === 'hls' && manifest.master_url) {
-            setupHlsPlayer(video, manifest.master_url, manifest, currentTrackId);
+            setupHlsPlayer(video, manifest.master_url, manifest, currentTrackId, episodeId);
             return;
         }
 
@@ -222,23 +267,23 @@
             video.src = defaultStreamUrl;
         }
 
-        renderAudioButtons(bar, manifest, video, function (track) {
-            currentTrackId = track.id;
+        renderAudioButtons(bar, manifest, video, episodeId, function (track) {
             setActiveButton(bar, track.id);
-            if (track.type === 'url') {
-                switchUrlTrack(video, track);
-            } else if (track.type === 'embedded') {
-                if (!switchEmbeddedTrack(video, track) && isMobile()) {
-                    alert('En este dispositivo sube un MP4 en inglés separado o usa HLS.');
-                }
-            }
+            applyTrack(video, manifest, track, null);
         });
 
         if (defaultTrack && defaultTrack.type === 'embedded' && supportsEmbeddedAudio()) {
             video.addEventListener('loadedmetadata', function once() {
                 video.removeEventListener('loadedmetadata', once);
                 switchEmbeddedTrack(video, defaultTrack);
+                setActiveButton(bar, defaultTrack.id);
             });
+        } else if (defaultTrack && defaultTrack.type === 'url' && defaultTrack.id !== 'es') {
+            switchUrlTrack(video, defaultTrack, function () {
+                setActiveButton(bar, defaultTrack.id);
+            });
+        } else if (defaultTrack) {
+            setActiveButton(bar, defaultTrack.id);
         }
     }
 

@@ -87,17 +87,23 @@ def delete_episode_thumbnail(episode) -> None:
         delete_object(episode.thumbnail_url)
 
 
+def delete_episode_subtitle_lang(episode, lang: str) -> None:
+    """Remove subtitle file(s) for one language."""
+    code = (lang or "es").lower()[:2]
+    keys: set[str | None] = set()
+    if code == "es":
+        keys.update({episode.subtitle_url, episode.subtitle_url_es})
+    elif code == "en":
+        keys.add(episode.subtitle_url_en)
+    for key in keys:
+        if key:
+            _delete_media_key(key)
+
+
 def delete_episode_subtitles(episode) -> None:
     """Remove all subtitle files for an episode."""
-    keys = {
-        episode.subtitle_url,
-        episode.subtitle_url_es,
-        episode.subtitle_url_en,
-    }
-    for key in keys:
-        if not key:
-            continue
-        _delete_media_key(key)
+    for lang in ("es", "en"):
+        delete_episode_subtitle_lang(episode, lang)
 
 
 def delete_episode_subtitle(episode) -> None:

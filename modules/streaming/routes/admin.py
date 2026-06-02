@@ -21,6 +21,7 @@ from modules.streaming.upload import (
     save_episode_hls,
     save_episode_thumbnail,
     save_episode_video,
+    save_subtitle_vtt,
     save_series_cover,
 )
 from utils.auth import admin_required
@@ -241,6 +242,31 @@ def episode_form(episode_id=None):
                 flash(str(e), "error")
                 return render_template("streaming/admin/episode_form.html", **ctx)
 
+        subtitle_en = request.files.get("subtitle_en")
+        if subtitle_en and subtitle_en.filename:
+            if not episode.id:
+                db.session.add(episode)
+                db.session.flush()
+            try:
+                content = subtitle_en.read().decode("utf-8-sig")
+                if not content.strip().upper().startswith("WEBVTT"):
+                    raise ValueError("El archivo debe ser WebVTT (.vtt)")
+                from modules.streaming.upload import delete_episode_subtitle_lang
+
+                delete_episode_subtitle_lang(episode, "en")
+                key = save_subtitle_vtt(content, series.id, episode.id, lang="en")
+                episode.subtitle_url_en = key
+                langs = ["es"] if (episode.subtitle_url_es or episode.subtitle_url) else []
+                if "en" not in langs:
+                    langs.append("en")
+                import json
+
+                episode.subtitle_langs = json.dumps(langs)
+                flash("Subtítulo inglés (VTT) guardado para uso futuro.", "success")
+            except (UnicodeDecodeError, ValueError) as e:
+                flash(str(e), "error")
+                return render_template("streaming/admin/episode_form.html", **ctx)
+
         thumb = request.files.get("thumbnail")
         if thumb and thumb.filename:
             try:
@@ -286,6 +312,23 @@ def episode_form(episode_id=None):
         "streaming/admin/episode_form.html",
         **_episode_form_context(episode, preselect_series_id, preselect_season_id),
     )
+
+
+@streaming_admin_bp.route("/episodes/<int:episode_id>/regenerate-subtitles", methods=["POST"])
+@admin_required
+def regenerate_episode_subtitles(episode_id):
+    episode = Episode.query.get_or_404(episode_id)
+    if not episode.video_url_r2:
+        flash("Sube un video antes de generar subtítulos.", "error")
+        return redirect(url_for("streaming_admin.episode_form", episode_id=episode_id))
+
+    from modules.streaming.services.subtitles import enqueue_subtitle_job
+
+    if enqueue_subtitle_job(episode.id, force=True):
+        flash("Regeneración de subtítulos en español iniciada.", "info")
+    else:
+        flash("No se pudo iniciar la regeneración (ya en proceso o deshabilitado).", "warning")
+    return redirect(url_for("streaming_admin.episode_form", episode_id=episode_id))
 
 
 @streaming_admin_bp.route("/episodes/<int:episode_id>/delete", methods=["POST"])

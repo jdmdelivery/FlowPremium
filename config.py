@@ -97,10 +97,6 @@ class Config:
     WHISPER_LANGUAGE = os.environ.get("WHISPER_LANGUAGE", "es")
     WHISPER_DEVICE = os.environ.get("WHISPER_DEVICE", "cpu")
     WHISPER_COMPUTE_TYPE = os.environ.get("WHISPER_COMPUTE_TYPE", "int8")
-    SUBTITLE_TARGET_LANGS = os.environ.get("SUBTITLE_TARGET_LANGS", "en")
-    SUBTITLE_TRANSLATE_PROVIDER = os.environ.get("SUBTITLE_TRANSLATE_PROVIDER", "auto")
-    DEEPL_API_KEY = os.environ.get("DEEPL_API_KEY", "")
-
     STORAGE_PROVIDER = os.environ.get(
         "STORAGE_PROVIDER", "r2" if os.environ.get("RENDER") else "local"
     ).lower()
