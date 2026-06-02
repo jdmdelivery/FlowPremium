@@ -83,6 +83,9 @@ class Episode(db.Model):
     description = db.Column(db.Text)
     video_url_r2 = db.Column(db.String(1000))
     thumbnail_url = db.Column(db.String(1000))
+    subtitle_url = db.Column(db.String(1000))
+    subtitle_status = db.Column(db.String(32), default="none", nullable=False)
+    subtitle_lang = db.Column(db.String(16), default="es")
     duration_seconds = db.Column(db.Integer, default=0)
     price = db.Column(db.Float, default=0.0, nullable=False)
     is_free = db.Column(db.Boolean, default=False, nullable=False)
@@ -101,6 +104,10 @@ class Episode(db.Model):
     @property
     def has_video(self) -> bool:
         return bool(self.video_url_r2)
+
+    @property
+    def has_subtitles(self) -> bool:
+        return bool(self.subtitle_url) and self.subtitle_status == "ready"
 
     @property
     def video_url(self) -> str | None:

@@ -576,6 +576,25 @@
 .cinema-player-stage:focus-within .cinema-controls,
 .cinema-controls.is-visible { opacity: 1; }
 
+.cinema-btn-cc {
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    min-width: 2.25rem;
+}
+.cinema-btn-cc.is-active {
+    color: #fff;
+    background: rgba(229, 9, 20, 0.85);
+    border-radius: 4px;
+}
+
+video::cue {
+    background: rgba(0, 0, 0, 0.75);
+    color: #fff;
+    font-size: clamp(0.85rem, 2.5vw, 1.1rem);
+    line-height: 1.35;
+}
+
 .cinema-progress-wrap { margin-bottom: 0.65rem; }
 
 #progress-bar {

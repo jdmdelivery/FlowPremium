@@ -198,12 +198,22 @@ def migrate_stream_episodes() -> None:
         "video_url_r2": "VARCHAR(1000)",
         "video_url": "VARCHAR(1000)",
         "thumbnail_url": "VARCHAR(1000)",
+        "subtitle_url": "VARCHAR(1000)",
+        "subtitle_status": "VARCHAR(32)",
+        "subtitle_lang": "VARCHAR(16)",
     }
     for name, col_type in additions.items():
         if name not in columns:
             db.session.execute(text(f"ALTER TABLE stream_episodes ADD COLUMN {name} {col_type}"))
 
     columns = {col["name"] for col in inspector.get_columns("stream_episodes")}
+    if "subtitle_status" in columns:
+        db.session.execute(
+            text(
+                "UPDATE stream_episodes SET subtitle_status = 'none' "
+                "WHERE subtitle_status IS NULL OR TRIM(subtitle_status) = ''"
+            )
+        )
 
     if "video_url_r2" in columns and "video_url" in columns:
         db.session.execute(

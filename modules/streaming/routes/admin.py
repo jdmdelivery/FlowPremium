@@ -11,6 +11,7 @@ from modules.streaming.services.payment import admin_grant_episode, admin_grant_
 from modules.streaming.services.validation import EpisodeValidationError, validate_episode_series_season
 from modules.streaming.upload import (
     delete_episode_media,
+    delete_episode_subtitle,
     delete_episode_thumbnail,
     delete_episode_video,
     delete_series_media,
@@ -184,13 +185,17 @@ def episode_form(episode_id=None):
         episode.is_active = request.form.get("is_active") == "on"
 
         video = request.files.get("video")
-        if video and video.filename:
+        new_video_uploaded = bool(video and video.filename)
+        if new_video_uploaded:
             try:
                 from utils.video import warn_if_mp4_not_faststart
 
                 faststart_warn = warn_if_mp4_not_faststart(video)
                 if episode and episode.video_url_r2:
                     delete_episode_video(episode)
+                    delete_episode_subtitle(episode)
+                    episode.subtitle_url = None
+                    episode.subtitle_status = "none"
                 episode.video_url_r2 = save_episode_video(video, series_id=series.id)
                 if faststart_warn:
                     flash(faststart_warn, "warning")
@@ -210,6 +215,16 @@ def episode_form(episode_id=None):
 
         db.session.add(episode)
         db.session.commit()
+
+        if new_video_uploaded and episode.video_url_r2:
+            from modules.streaming.services.subtitles import enqueue_subtitle_job
+
+            if enqueue_subtitle_job(episode.id):
+                flash(
+                    "Subtítulos automáticos en proceso (puede tardar varios minutos).",
+                    "info",
+                )
+
         flash("Episodio guardado / Episode saved", "success")
         return redirect(url_for("streaming_admin.episodes_list"))
 

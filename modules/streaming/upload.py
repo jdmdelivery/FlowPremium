@@ -68,9 +68,35 @@ def delete_episode_thumbnail(episode) -> None:
         delete_object(episode.thumbnail_url)
 
 
+def delete_episode_subtitle(episode) -> None:
+    from modules.storage.storage_r2 import delete_object
+
+    if not episode.subtitle_url:
+        return
+    if is_local_media_url(episode.subtitle_url):
+        delete_storage_file(episode.subtitle_url)
+    else:
+        delete_object(episode.subtitle_url)
+
+
+def save_subtitle_vtt(content: str, series_id: int, episode_id: int) -> str:
+    """Persist WebVTT; returns storage key or local relative path."""
+    if use_r2_storage():
+        from modules.storage.storage_r2 import upload_subtitle_vtt
+
+        return upload_subtitle_vtt(content, series_id, episode_id)
+
+    folder = Path(current_app.config["UPLOAD_FOLDER"]) / "subtitles" / str(series_id)
+    folder.mkdir(parents=True, exist_ok=True)
+    dest = folder / f"episode_{episode_id}.vtt"
+    dest.write_text(content, encoding="utf-8")
+    return _relative_path(dest)
+
+
 def delete_episode_media(episode) -> None:
     delete_episode_video(episode)
     delete_episode_thumbnail(episode)
+    delete_episode_subtitle(episode)
 
 
 def delete_series_media(series) -> None:

@@ -41,6 +41,8 @@ uploads/
 storage/streaming/videos/**
 storage/streaming/covers/**
 storage/streaming/series/**
+storage/streaming/subtitles/**
+storage/streaming/_pytest/**
 !storage/streaming/.gitkeep
 
 # Databases

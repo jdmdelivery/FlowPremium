@@ -6,6 +6,7 @@ from modules.streaming.models import Episode, EpisodePurchase, Payment, Season, 
 from modules.streaming.services.access import can_watch, get_episode_access_status, get_watch_progress
 from modules.streaming.services.payment import admin_grant_episode, admin_grant_subscription, purchase_episode
 from modules.streaming.services.stream import get_episode_stream_url, stream_episode_video
+from modules.streaming.services.subtitle_stream import get_subtitle_playback_url
 from modules.streaming.services.home import get_home_sections, get_next_episode
 
 streaming_bp = Blueprint("streaming", __name__, url_prefix="/streaming")
@@ -65,6 +66,7 @@ def watch(episode_id):
         next_episode=next_episode,
         next_access=next_access,
         stream_url=get_episode_stream_url(current_user, episode),
+        subtitle_url=get_subtitle_playback_url(episode),
         progress_url=url_for("streaming_api.api_progress"),
     )
 

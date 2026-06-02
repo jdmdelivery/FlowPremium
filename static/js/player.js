@@ -11,10 +11,12 @@
     var timeDuration = document.getElementById('time-duration');
     var timeRemaining = document.getElementById('time-remaining');
     var btnFullscreen = document.getElementById('btn-fullscreen');
+    var btnCc = document.getElementById('btn-cc');
     var cinemaControls = document.getElementById('cinema-controls');
     var cinemaLoading = document.getElementById('cinema-loading');
 
     var streamUrl = wrapper.dataset.streamUrl;
+    var subtitleUrl = wrapper.dataset.subtitleUrl;
     var progressUrl = wrapper.dataset.progressUrl;
     var episodeId = parseInt(wrapper.dataset.episodeId, 10);
     var startPos = parseFloat(wrapper.dataset.start || '0');
@@ -25,6 +27,44 @@
     var controlsTimer = null;
 
     video.src = streamUrl;
+
+    if (subtitleUrl && !video.querySelector('track')) {
+        var track = document.createElement('track');
+        track.kind = 'captions';
+        track.src = subtitleUrl;
+        track.srclang = 'es';
+        track.label = 'Subtítulos';
+        track.default = true;
+        video.appendChild(track);
+    }
+
+    function getCaptionTrack() {
+        for (var i = 0; i < video.textTracks.length; i++) {
+            if (video.textTracks[i].kind === 'captions' || video.textTracks[i].kind === 'subtitles') {
+                return video.textTracks[i];
+            }
+        }
+        return null;
+    }
+
+    function initCaptionsOn() {
+        var track = getCaptionTrack();
+        if (track) {
+            track.mode = 'showing';
+            if (btnCc) btnCc.classList.add('is-active');
+        }
+    }
+
+    if (btnCc) {
+        btnCc.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var track = getCaptionTrack();
+            if (!track) return;
+            var show = track.mode !== 'showing';
+            track.mode = show ? 'showing' : 'hidden';
+            btnCc.classList.toggle('is-active', show);
+        });
+    }
 
     /* Mobile: attempt landscape-friendly fullscreen on play */
     var isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
@@ -38,6 +78,7 @@
     });
 
     video.addEventListener('loadedmetadata', function () {
+        initCaptionsOn();
         if (startPos > 0 && startPos < video.duration - 5) {
             video.currentTime = startPos;
         }

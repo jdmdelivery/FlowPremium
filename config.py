@@ -87,6 +87,17 @@ class Config:
 
     CASHAPP_TAG = os.environ.get("CASHAPP_TAG", "")
 
+    _subtitle_default = "false" if _on_render else "true"
+    SUBTITLES_ENABLED = os.environ.get("SUBTITLES_ENABLED", _subtitle_default).lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    WHISPER_MODEL_SIZE = os.environ.get("WHISPER_MODEL_SIZE", "base")
+    WHISPER_LANGUAGE = os.environ.get("WHISPER_LANGUAGE", "es")
+    WHISPER_DEVICE = os.environ.get("WHISPER_DEVICE", "cpu")
+    WHISPER_COMPUTE_TYPE = os.environ.get("WHISPER_COMPUTE_TYPE", "int8")
+
     STORAGE_PROVIDER = os.environ.get(
         "STORAGE_PROVIDER", "r2" if os.environ.get("RENDER") else "local"
     ).lower()

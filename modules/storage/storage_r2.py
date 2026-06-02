@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import logging
 import uuid
+from pathlib import Path
 from typing import BinaryIO
 
 from flask import current_app
@@ -310,6 +311,31 @@ def delete_object(key: str | None) -> bool:
     except Exception:
         logger.exception("Failed to delete R2 object %s", key)
         return False
+
+
+def download_object_to_path(key: str, dest: Path) -> Path:
+    """Download R2 object to a local file (for ffmpeg / whisper processing)."""
+    if not is_r2_configured():
+        raise ValueError("R2 not configured")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    _get_client().download_file(_bucket(), key, str(dest))
+    return dest
+
+
+def upload_subtitle_vtt(content: str, series_id: int, episode_id: int) -> str:
+    """Upload WebVTT bytes to R2; returns object key."""
+    if not is_r2_configured():
+        raise ValueError("R2 not configured")
+    key = f"subtitles/{series_id}/{episode_id}/{uuid.uuid4().hex}.vtt"
+    data = content.encode("utf-8")
+    _get_client().put_object(
+        Bucket=_bucket(),
+        Key=key,
+        Body=data,
+        ContentType="text/vtt; charset=utf-8",
+    )
+    logger.info("Uploaded subtitle to R2: %s", key)
+    return key
 
 
 def stream_object_from_r2(

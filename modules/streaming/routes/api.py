@@ -5,6 +5,7 @@ from modules.streaming.models import Episode, Series
 from modules.streaming.services.access import can_watch, get_episode_access_status
 from modules.streaming.services.payment import purchase_episode
 from modules.streaming.services.stream import save_progress, stream_episode_video
+from modules.streaming.services.subtitle_stream import stream_episode_subtitles
 from utils.media import media_url
 
 streaming_api_bp = Blueprint("streaming_api", __name__, url_prefix="/api/streaming")
@@ -84,3 +85,11 @@ def stream_video(episode_id):
     if not can_watch(current_user, episode):
         return jsonify({"error": "Forbidden"}), 403
     return stream_episode_video(current_user, episode)
+
+
+@streaming_api_bp.route("/subtitles/<int:episode_id>", methods=["GET", "HEAD"])
+def stream_subtitles(episode_id):
+    episode = Episode.query.filter_by(id=episode_id, is_active=True).first_or_404()
+    if not can_watch(current_user, episode):
+        return jsonify({"error": "Forbidden"}), 403
+    return stream_episode_subtitles(current_user, episode)

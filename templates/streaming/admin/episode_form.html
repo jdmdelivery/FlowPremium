@@ -58,6 +58,14 @@
         <label>{{ t('price') }}<input type="number" name="price" step="0.01" value="{{ episode.price if episode else 0 }}" min="0"></label>
         <label>{{ t('video') }}<input type="file" name="video" accept="video/mp4,video/webm,video/ogg"></label>
         <p class="admin-hint">{{ t('video_max_hint') }} {{ max_video_mb }} MB.</p>
+        {% if episode and episode.subtitle_status and episode.subtitle_status != 'none' %}
+        <p class="admin-hint">{{ t('subtitle_status') }}: <strong>{{ episode.subtitle_status }}</strong>
+            {% if episode.subtitle_status == 'ready' %} — {{ t('subtitle_ready') }}{% endif %}
+            {% if episode.subtitle_status == 'processing' or episode.subtitle_status == 'pending' %} — {{ t('subtitle_processing') }}{% endif %}
+            {% if episode.subtitle_status == 'failed' %} — {{ t('subtitle_failed') }}{% endif %}
+            {% if episode.subtitle_status == 'skipped' %} — {{ t('subtitle_skipped') }}{% endif %}
+        </p>
+        {% endif %}
         <label>{{ t('thumbnail') }}<input type="file" name="thumbnail" accept="image/*"></label>
         <p class="admin-hint">{{ t('episode_thumbnail_hint') }}</p>
         <label class="checkbox"><input type="checkbox" name="is_free" {% if episode and episode.is_free %}checked{% endif %}> {{ t('is_free') }}</label>
