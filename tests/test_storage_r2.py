@@ -83,17 +83,36 @@ def test_upload_video_to_r2(mock_client_factory, app):
     client.upload_fileobj.assert_called_once()
 
 
-def test_stream_redirects_to_r2_url(app, sample_content, admin_client):
+def test_stream_proxies_r2_with_range(app, sample_content, admin_client):
     with app.app_context():
         ep = db.session.get(Episode, sample_content["free_episode_id"])
         ep.video_url = "videos/1/test.mp4"
         db.session.commit()
         episode_id = ep.id
 
-    with patch("modules.storage.storage_r2.get_playback_url", return_value="https://cdn.example/vid.mp4"):
-        resp = admin_client.get(f"/api/streaming/stream/{episode_id}")
-        assert resp.status_code == 302
-        assert resp.headers["Location"] == "https://cdn.example/vid.mp4"
+    mock_body = MagicMock()
+    mock_body.iter_chunks.return_value = [b"data"]
+
+    with patch("modules.storage.storage_r2.is_r2_configured", return_value=True), patch(
+        "modules.storage.storage_r2.stream_object_from_r2",
+        return_value=(
+            206,
+            {
+                "Accept-Ranges": "bytes",
+                "Content-Type": "video/mp4",
+                "Content-Length": "4",
+                "Content-Range": "bytes 0-3/100",
+            },
+            mock_body,
+        ),
+    ) as stream_mock:
+        resp = admin_client.get(
+            f"/api/streaming/stream/{episode_id}",
+            headers={"Range": "bytes=0-"},
+        )
+        assert resp.status_code == 206
+        stream_mock.assert_called_once()
+        assert stream_mock.call_args[0][1] == "bytes=0-"
 
 
 def test_media_url_local_path(app):

@@ -21,7 +21,7 @@
          data-next-url="{% if next_episode %}{{ url_for('streaming.watch', episode_id=next_episode.id) }}{% endif %}"
          data-next-title="{{ next_episode.title if next_episode else '' }}">
 
-        <video id="video-player" playsinline webkit-playsinline></video>
+        <video id="video-player" playsinline webkit-playsinline controls preload="metadata"></video>
 
         <div class="cinema-controls" id="cinema-controls">
             <div class="cinema-progress-wrap">

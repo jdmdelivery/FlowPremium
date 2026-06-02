@@ -1,10 +1,16 @@
+import logging
+import re
 from datetime import datetime
 
-from flask import Response, redirect, request, send_file, url_for
+from flask import Response, request, send_file
 
 from modules.streaming.models import Episode, WatchProgress
 from modules.streaming.services.access import can_watch
 from modules.streaming.upload import is_local_media_url, resolve_storage_path
+
+logger = logging.getLogger(__name__)
+
+_RANGE_RE = re.compile(r"bytes=(\d*)-(\d*)")
 
 
 def save_progress(user, episode_id: int, position: int, completed: bool = False) -> WatchProgress:
@@ -24,19 +30,42 @@ def save_progress(user, episode_id: int, position: int, completed: bool = False)
 
 
 def get_episode_stream_url(user, episode: Episode) -> str:
-    """Playback URL from R2 or local stream API for dev storage paths."""
-    if not episode.video_url:
-        return url_for("streaming_api.stream_video", episode_id=episode.id)
+    """Same-origin stream URL so mobile browsers get proper 206 Range responses."""
+    from flask import url_for
 
-    if is_local_media_url(episode.video_url):
-        return url_for("streaming_api.stream_video", episode_id=episode.id)
-
-    from modules.storage.storage_r2 import get_playback_url
-
-    url = get_playback_url(episode.video_url)
-    if url:
-        return url
     return url_for("streaming_api.stream_video", episode_id=episode.id)
+
+
+def _parse_range(file_size: int, range_header: str) -> tuple[int, int] | None:
+    match = _RANGE_RE.match(range_header.strip())
+    if not match:
+        return None
+    start_s, end_s = match.group(1), match.group(2)
+    byte_start = int(start_s) if start_s else 0
+    byte_end = int(end_s) if end_s else file_size - 1
+    byte_end = min(byte_end, file_size - 1)
+    if byte_start > byte_end or byte_start >= file_size:
+        return None
+    return byte_start, byte_end
+
+
+def _video_response_headers(
+    *,
+    content_length: int,
+    byte_start: int | None = None,
+    byte_end: int | None = None,
+    file_size: int | None = None,
+    status: int = 200,
+) -> dict[str, str]:
+    headers = {
+        "Accept-Ranges": "bytes",
+        "Content-Type": "video/mp4",
+        "Content-Length": str(content_length),
+        "Cache-Control": "private, max-age=3600",
+    }
+    if status == 206 and byte_start is not None and byte_end is not None and file_size is not None:
+        headers["Content-Range"] = f"bytes {byte_start}-{byte_end}/{file_size}"
+    return headers
 
 
 def _stream_local_file(video_ref: str, episode_id: int) -> Response:
@@ -49,36 +78,69 @@ def _stream_local_file(video_ref: str, episode_id: int) -> Response:
     range_header = request.headers.get("Range")
 
     if not range_header:
-        return send_file(
+        resp = send_file(
             video_path,
             mimetype="video/mp4",
             conditional=True,
             download_name=f"episode_{episode_id}.mp4",
         )
+        resp.headers["Accept-Ranges"] = "bytes"
+        resp.headers.setdefault("Content-Type", "video/mp4")
+        if request.method == "HEAD":
+            resp.direct_passthrough = False
+        return resp
 
-    byte_start, byte_end = 0, file_size - 1
-    try:
-        range_val = range_header.replace("bytes=", "").strip()
-        parts = range_val.split("-")
-        if parts[0]:
-            byte_start = int(parts[0])
-        if len(parts) > 1 and parts[1]:
-            byte_end = int(parts[1])
-    except (ValueError, IndexError):
-        byte_end = file_size - 1
+    parsed = _parse_range(file_size, range_header)
+    if not parsed:
+        return Response("Invalid range", status=416, headers={"Content-Range": f"bytes */{file_size}"})
 
-    byte_end = min(byte_end, file_size - 1)
+    byte_start, byte_end = parsed
     length = byte_end - byte_start + 1
+
+    if request.method == "HEAD":
+        headers = _video_response_headers(
+            content_length=length,
+            byte_start=byte_start,
+            byte_end=byte_end,
+            file_size=file_size,
+            status=206,
+        )
+        return Response(status=206, headers=headers)
 
     with open(video_path, "rb") as f:
         f.seek(byte_start)
         data = f.read(length)
 
-    resp = Response(data, status=206, mimetype="video/mp4", direct_passthrough=True)
-    resp.headers["Content-Range"] = f"bytes {byte_start}-{byte_end}/{file_size}"
-    resp.headers["Accept-Ranges"] = "bytes"
-    resp.headers["Content-Length"] = str(length)
-    return resp
+    headers = _video_response_headers(
+        content_length=length,
+        byte_start=byte_start,
+        byte_end=byte_end,
+        file_size=file_size,
+        status=206,
+    )
+    return Response(data, status=206, headers=headers, direct_passthrough=True)
+
+
+def _stream_r2_file(key: str) -> Response:
+    from modules.storage.storage_r2 import is_r2_configured, stream_object_from_r2
+
+    if not is_r2_configured():
+        return Response(
+            "Video no disponible. Cloudflare R2 no está accesible en este momento.",
+            status=503,
+        )
+
+    range_header = request.headers.get("Range")
+    try:
+        status, headers, body = stream_object_from_r2(key, range_header)
+    except Exception:
+        logger.exception("R2 stream failed for key=%s", key)
+        return Response("Video not found", status=404)
+
+    if request.method == "HEAD":
+        return Response(status=status, headers=headers)
+
+    return Response(body, status=status, headers=headers, direct_passthrough=True)
 
 
 def stream_episode_video(user, episode: Episode) -> Response:
@@ -91,12 +153,4 @@ def stream_episode_video(user, episode: Episode) -> Response:
     if is_local_media_url(episode.video_url):
         return _stream_local_file(episode.video_url, episode.id)
 
-    from modules.storage.storage_r2 import get_playback_url
-
-    url = get_playback_url(episode.video_url)
-    if not url:
-        return Response(
-            "Video no disponible. Cloudflare R2 no está accesible en este momento.",
-            status=503,
-        )
-    return redirect(url)
+    return _stream_r2_file(episode.video_url)

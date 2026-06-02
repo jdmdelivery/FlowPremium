@@ -312,6 +312,47 @@ def delete_object(key: str | None) -> bool:
         return False
 
 
+def stream_object_from_r2(
+    key: str,
+    range_header: str | None = None,
+) -> tuple[int, dict[str, str], object]:
+    """
+    Stream object from R2 with optional HTTP Range (Safari/iOS requires 206).
+    Returns (status_code, headers, body_iterable).
+    """
+    if not is_r2_configured():
+        raise ValueError("R2 not configured")
+
+    kwargs: dict = {"Bucket": _bucket(), "Key": key}
+    if range_header:
+        kwargs["Range"] = range_header
+
+    resp = _get_client().get_object(**kwargs)
+
+    content_type = resp.get("ContentType") or "video/mp4"
+    if not str(content_type).startswith("video/"):
+        ext = _ext(key) if "." in key else "mp4"
+        content_type = VIDEO_CONTENT_TYPES.get(ext, "video/mp4")
+
+    headers: dict[str, str] = {
+        "Accept-Ranges": "bytes",
+        "Content-Type": content_type,
+        "Cache-Control": "private, max-age=3600",
+    }
+    if resp.get("ContentLength") is not None:
+        headers["Content-Length"] = str(resp["ContentLength"])
+    content_range = resp.get("ContentRange")
+    if content_range:
+        headers["Content-Range"] = content_range
+        status = 206
+    elif range_header:
+        status = 206
+    else:
+        status = 200
+
+    return status, headers, resp["Body"].iter_chunks(chunk_size=256 * 1024)
+
+
 def get_playback_url(key: str, expires: int = 3600) -> str | None:
     """Public URL or presigned URL for streaming."""
     if not key:

@@ -1,5 +1,6 @@
 import os
 import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -19,10 +20,12 @@ def app():
         SECRET_KEY = "test-secret"
         SQLALCHEMY_DATABASE_URI = f"sqlite:///{db_path}"
         SQLALCHEMY_TRACK_MODIFICATIONS = False
-        UPLOAD_FOLDER = tempfile.mkdtemp()
-        VIDEO_FOLDER = os.path.join(UPLOAD_FOLDER, "videos")
-        THUMBNAIL_FOLDER = os.path.join(UPLOAD_FOLDER, "covers")
-        SERIES_COVER_FOLDER = os.path.join(UPLOAD_FOLDER, "series")
+        _test_storage = Path(__file__).resolve().parent.parent / "storage" / "streaming" / "_pytest"
+        _test_storage.mkdir(parents=True, exist_ok=True)
+        UPLOAD_FOLDER = _test_storage
+        VIDEO_FOLDER = _test_storage / "videos"
+        THUMBNAIL_FOLDER = _test_storage / "covers"
+        SERIES_COVER_FOLDER = _test_storage / "series"
         ALLOWED_VIDEO_EXTENSIONS = {"mp4", "webm", "ogg"}
         ALLOWED_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}
         DEFAULT_LOCALE = "es"

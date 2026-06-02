@@ -556,6 +556,14 @@
     object-fit: contain;
 }
 
+/* Custom cinema UI; keep controls attr for iOS inline/range behavior */
+#video-player::-webkit-media-controls {
+    display: none !important;
+}
+#video-player::-webkit-media-controls-enclosure {
+    display: none !important;
+}
+
 .cinema-controls {
     position: absolute;
     bottom: 0; left: 0; right: 0;

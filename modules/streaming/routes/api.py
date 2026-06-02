@@ -78,7 +78,7 @@ def api_progress():
     })
 
 
-@streaming_api_bp.route("/stream/<int:episode_id>")
+@streaming_api_bp.route("/stream/<int:episode_id>", methods=["GET", "HEAD"])
 def stream_video(episode_id):
     episode = Episode.query.filter_by(id=episode_id, is_active=True).first_or_404()
     if not can_watch(current_user, episode):

@@ -186,9 +186,14 @@ def episode_form(episode_id=None):
         video = request.files.get("video")
         if video and video.filename:
             try:
+                from utils.video import warn_if_mp4_not_faststart
+
+                faststart_warn = warn_if_mp4_not_faststart(video)
                 if episode and episode.video_url_r2:
                     delete_episode_video(episode)
                 episode.video_url_r2 = save_episode_video(video, series_id=series.id)
+                if faststart_warn:
+                    flash(faststart_warn, "warning")
             except ValueError as e:
                 flash(str(e), "error")
                 return render_template("streaming/admin/episode_form.html", **ctx)
