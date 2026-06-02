@@ -17,6 +17,13 @@
 
     var streamUrl = wrapper.dataset.streamUrl;
     var subtitleUrl = wrapper.dataset.subtitleUrl;
+    var audioManifest = null;
+    try {
+        var manifestEl = document.getElementById('player-audio-manifest');
+        audioManifest = manifestEl ? JSON.parse(manifestEl.textContent || '{}') : null;
+    } catch (e) {
+        audioManifest = null;
+    }
     var progressUrl = wrapper.dataset.progressUrl;
     var episodeId = parseInt(wrapper.dataset.episodeId, 10);
     var startPos = parseFloat(wrapper.dataset.start || '0');
@@ -26,7 +33,11 @@
     var lastSaved = 0;
     var controlsTimer = null;
 
-    video.src = streamUrl;
+    if (window.FlowPremiumAudio) {
+        window.FlowPremiumAudio.init(video, audioManifest, streamUrl);
+    } else {
+        video.src = streamUrl;
+    }
 
     if (subtitleUrl && !video.querySelector('track')) {
         var track = document.createElement('track');
@@ -53,6 +64,16 @@
             track.mode = 'showing';
             if (btnCc) btnCc.classList.add('is-active');
         }
+    }
+
+    var btnAudio = document.getElementById('btn-audio');
+    var audioTrackBar = document.getElementById('audio-track-bar');
+    if (btnAudio && audioTrackBar) {
+        btnAudio.addEventListener('click', function (e) {
+            e.stopPropagation();
+            audioTrackBar.classList.toggle('is-open');
+            btnAudio.classList.toggle('is-active');
+        });
     }
 
     if (btnCc) {

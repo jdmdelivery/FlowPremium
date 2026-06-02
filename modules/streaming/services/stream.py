@@ -29,11 +29,19 @@ def save_progress(user, episode_id: int, position: int, completed: bool = False)
     return progress
 
 
-def get_episode_stream_url(user, episode: Episode) -> str:
+def get_episode_stream_url(user, episode: Episode, lang: str = "es") -> str:
     """Same-origin stream URL so mobile browsers get proper 206 Range responses."""
     from flask import url_for
 
-    return url_for("streaming_api.stream_video", episode_id=episode.id)
+    return url_for("streaming_api.stream_video", episode_id=episode.id, lang=lang)
+
+
+def resolve_episode_video_key(episode: Episode, lang: str | None = None) -> str | None:
+    """Pick storage key for episode video (Spanish default, optional English variant)."""
+    code = (lang or "es").lower().strip()
+    if code in ("en", "eng", "english") and episode.video_url_r2_en:
+        return episode.video_url_r2_en
+    return episode.video_url_r2
 
 
 def _parse_range(file_size: int, range_header: str) -> tuple[int, int] | None:
@@ -147,10 +155,12 @@ def stream_episode_video(user, episode: Episode) -> Response:
     if not can_watch(user, episode):
         return Response("Forbidden", status=403)
 
-    if not episode.video_url:
+    lang = request.args.get("lang", "es")
+    video_key = resolve_episode_video_key(episode, lang)
+    if not video_key:
         return Response("Video not available", status=404)
 
-    if is_local_media_url(episode.video_url):
-        return _stream_local_file(episode.video_url, episode.id)
+    if is_local_media_url(video_key):
+        return _stream_local_file(video_key, episode.id)
 
-    return _stream_r2_file(episode.video_url)
+    return _stream_r2_file(video_key)

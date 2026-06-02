@@ -56,8 +56,12 @@
         <label>{{ t('description') }}<textarea name="description" rows="3">{{ episode.description if episode else '' }}</textarea></label>
         <label>{{ t('duration') }}<input type="number" name="duration_seconds" value="{{ episode.duration_seconds if episode else 0 }}" min="0"></label>
         <label>{{ t('price') }}<input type="number" name="price" step="0.01" value="{{ episode.price if episode else 0 }}" min="0"></label>
-        <label>{{ t('video') }}<input type="file" name="video" accept="video/mp4,video/webm,video/ogg"></label>
+        <label>{{ t('video') }} (🇪🇸 {{ t('spanish') }})<input type="file" name="video" accept="video/mp4,video/webm,video/ogg"></label>
         <p class="admin-hint">{{ t('video_max_hint') }} {{ max_video_mb }} MB.</p>
+        <label>{{ t('video_en') }}<input type="file" name="video_en" accept="video/mp4,video/webm,video/ogg"></label>
+        <p class="admin-hint">{{ t('video_en_hint') }}</p>
+        <label>{{ t('hls_master') }}<input type="file" name="hls_master" accept=".m3u8,application/vnd.apple.mpegurl"></label>
+        <p class="admin-hint">{{ t('hls_master_hint') }}</p>
         {% if episode and episode.subtitle_status and episode.subtitle_status != 'none' %}
         <p class="admin-hint">{{ t('subtitle_status') }}: <strong>{{ episode.subtitle_status }}</strong>
             {% if episode.subtitle_status == 'ready' %} — {{ t('subtitle_ready') }}{% endif %}

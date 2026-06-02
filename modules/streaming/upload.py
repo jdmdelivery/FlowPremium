@@ -45,16 +45,35 @@ def _require_r2_for_episode_media() -> None:
         )
 
 
-def delete_episode_video(episode) -> None:
+def _delete_media_key(url: str | None) -> None:
     from modules.storage.storage_r2 import delete_object
 
-    url = episode.video_url_r2
     if not url:
         return
     if is_local_media_url(url):
         delete_storage_file(url)
     else:
         delete_object(url)
+
+
+def delete_episode_video(episode) -> None:
+    _delete_media_key(episode.video_url_r2)
+    _delete_media_key(episode.video_url_r2_en)
+
+
+def delete_episode_primary_video(episode) -> None:
+    _delete_media_key(episode.video_url_r2)
+
+
+def delete_episode_hls(episode) -> None:
+    from modules.storage.storage_r2 import delete_object
+
+    if not episode.hls_url_r2:
+        return
+    if is_local_media_url(episode.hls_url_r2):
+        delete_storage_file(episode.hls_url_r2)
+    else:
+        delete_object(episode.hls_url_r2)
 
 
 def delete_episode_thumbnail(episode) -> None:
@@ -95,6 +114,7 @@ def save_subtitle_vtt(content: str, series_id: int, episode_id: int) -> str:
 
 def delete_episode_media(episode) -> None:
     delete_episode_video(episode)
+    delete_episode_hls(episode)
     delete_episode_thumbnail(episode)
     delete_episode_subtitle(episode)
 
@@ -125,14 +145,33 @@ def save_series_cover(file: FileStorage, series_id: int) -> tuple[str, str]:
     return path, path
 
 
-def save_episode_video(file: FileStorage, series_id: int | None = None) -> str:
+def save_episode_video(
+    file: FileStorage, series_id: int | None = None, lang: str = "es"
+) -> str:
     """Upload video to R2 only in production; local path only for dev tests."""
     _require_r2_for_episode_media()
     if use_r2_storage():
         from modules.storage.storage_r2 import upload_video
 
-        return upload_video(file, series_id=series_id)
-    return save_video(file, series_id=series_id)
+        return upload_video(file, series_id=series_id, lang=lang)
+    return save_video(file, series_id=series_id, lang=lang)
+
+
+def save_episode_hls(file: FileStorage, series_id: int, episode_id: int) -> str:
+    if not file or not file.filename:
+        raise ValueError("No HLS playlist provided")
+    if not file.filename.lower().endswith(".m3u8"):
+        raise ValueError("HLS master must be a .m3u8 file")
+    content = file.read().decode("utf-8", errors="replace")
+    if use_r2_storage():
+        from modules.storage.storage_r2 import upload_hls_playlist
+
+        return upload_hls_playlist(content, series_id, episode_id)
+    folder = Path(current_app.config["UPLOAD_FOLDER"]) / "hls" / str(series_id) / str(episode_id)
+    folder.mkdir(parents=True, exist_ok=True)
+    dest = folder / "master.m3u8"
+    dest.write_text(content, encoding="utf-8")
+    return _relative_path(dest)
 
 
 def save_episode_thumbnail(file: FileStorage, series_id: int | None = None) -> str:
@@ -154,7 +193,7 @@ def save_payment_screenshot(file: FileStorage, payment_id: int | None = None) ->
     return save_image(file, kind="payment", entity_id=payment_id)
 
 
-def save_video(file: FileStorage, series_id: int | None = None) -> str:
+def save_video(file: FileStorage, series_id: int | None = None, lang: str = "es") -> str:
     if must_use_r2_storage():
         raise ValueError("Los videos no se guardan en el servidor. Usa Cloudflare R2.")
     if not file or not file.filename:
@@ -173,6 +212,8 @@ def save_video(file: FileStorage, series_id: int | None = None) -> str:
     folder = Path(current_app.config["VIDEO_FOLDER"])
     if series_id:
         folder = folder / str(series_id)
+        if lang and lang != "es":
+            folder = folder / lang
     _ensure_dir(folder)
     ext = file.filename.rsplit(".", 1)[1].lower()
     name = f"{uuid.uuid4().hex}.{ext}"

@@ -22,7 +22,7 @@
          data-next-url="{% if next_episode %}{{ url_for('streaming.watch', episode_id=next_episode.id) }}{% endif %}"
          data-next-title="{{ next_episode.title if next_episode else '' }}">
 
-        <video id="video-player" playsinline webkit-playsinline controls preload="metadata">
+        <video id="video-player" playsinline webkit-playsinline preload="metadata" crossorigin="anonymous">
             {% if subtitle_url %}
             <track kind="captions" src="{{ subtitle_url }}" srclang="{{ episode.subtitle_lang or 'es' }}" label="{{ t('subtitles') }}" default>
             {% endif %}
@@ -43,6 +43,7 @@
                     </div>
                 </div>
                 <div class="cinema-controls-right">
+                    <button type="button" id="btn-audio" class="cinema-btn cinema-btn-audio" aria-label="{{ t('audio_language') }}" {% if not audio_manifest.show_selector %}hidden{% endif %}>🔊</button>
                     <button type="button" id="btn-cc" class="cinema-btn cinema-btn-cc{% if subtitle_url %} has-subtitles{% endif %}" aria-label="{{ t('subtitles') }}" {% if not subtitle_url %}hidden{% endif %}>CC</button>
                     <button type="button" id="btn-fullscreen" class="cinema-btn" aria-label="Fullscreen">&#9974;</button>
                 </div>
@@ -52,6 +53,11 @@
         <div class="cinema-loading" id="cinema-loading">
             <div class="cinema-spinner"></div>
         </div>
+    </div>
+
+    <div class="audio-track-bar" id="audio-track-bar" {% if not audio_manifest.show_selector %}hidden{% endif %}>
+        <span class="audio-track-label">{{ t('audio_language') }}</span>
+        <div class="audio-track-options" id="audio-track-options"></div>
     </div>
 
     {% if next_episode %}
@@ -71,5 +77,10 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/player.js') }}"></script>
+<script type="application/json" id="player-audio-manifest">{{ audio_manifest | tojson }}</script>
+{% if audio_manifest.mode == 'hls' and audio_manifest.master_url %}
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js" defer></script>
+{% endif %}
+<script src="{{ url_for('static', filename='js/player-audio.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/player.js') }}" defer></script>
 {% endblock %}

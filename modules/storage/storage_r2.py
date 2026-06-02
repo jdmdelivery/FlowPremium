@@ -174,7 +174,9 @@ def count_r2_objects(prefix: str = "") -> int:
         return -1
 
 
-def upload_video(file: FileStorage, series_id: int | None = None) -> str:
+def upload_video(
+    file: FileStorage, series_id: int | None = None, lang: str | None = None
+) -> str:
     """Upload video to R2; returns object key stored in video_url_r2."""
     if not is_r2_configured():
         raise ValueError(
@@ -192,10 +194,28 @@ def upload_video(file: FileStorage, series_id: int | None = None) -> str:
         mb = max_size // (1024 * 1024)
         raise ValueError(f"Video too large. Maximum size is {mb} MB.")
 
-    folder = f"videos/{series_id}" if series_id else "videos"
+    if series_id and lang and lang != "es":
+        folder = f"videos/{series_id}/{lang}"
+    else:
+        folder = f"videos/{series_id}" if series_id else "videos"
     key = f"{folder}/{uuid.uuid4().hex}.{ext}"
     content_type = VIDEO_CONTENT_TYPES.get(ext, "application/octet-stream")
     return _upload_fileobj(file.stream, key, content_type)
+
+
+def upload_hls_playlist(content: str, series_id: int, episode_id: int) -> str:
+    if not is_r2_configured():
+        raise ValueError("R2 not configured")
+    key = f"hls/{series_id}/{episode_id}/master.m3u8"
+    data = content.encode("utf-8")
+    _get_client().put_object(
+        Bucket=_bucket(),
+        Key=key,
+        Body=data,
+        ContentType="application/vnd.apple.mpegurl",
+    )
+    logger.info("Uploaded HLS master to R2: %s", key)
+    return key
 
 
 def upload_thumbnail(file: FileStorage, series_id: int | None = None) -> str:

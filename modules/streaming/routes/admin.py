@@ -11,10 +11,14 @@ from modules.streaming.services.payment import admin_grant_episode, admin_grant_
 from modules.streaming.services.validation import EpisodeValidationError, validate_episode_series_season
 from modules.streaming.upload import (
     delete_episode_media,
+    _delete_media_key,
+    delete_episode_hls,
+    delete_episode_primary_video,
     delete_episode_subtitle,
     delete_episode_thumbnail,
     delete_episode_video,
     delete_series_media,
+    save_episode_hls,
     save_episode_thumbnail,
     save_episode_video,
     save_series_cover,
@@ -192,13 +196,43 @@ def episode_form(episode_id=None):
 
                 faststart_warn = warn_if_mp4_not_faststart(video)
                 if episode and episode.video_url_r2:
-                    delete_episode_video(episode)
+                    delete_episode_primary_video(episode)
                     delete_episode_subtitle(episode)
                     episode.subtitle_url = None
                     episode.subtitle_status = "none"
-                episode.video_url_r2 = save_episode_video(video, series_id=series.id)
+                episode.video_url_r2 = save_episode_video(video, series_id=series.id, lang="es")
                 if faststart_warn:
                     flash(faststart_warn, "warning")
+            except ValueError as e:
+                flash(str(e), "error")
+                return render_template("streaming/admin/episode_form.html", **ctx)
+
+        video_en = request.files.get("video_en")
+        if video_en and video_en.filename:
+            try:
+                from utils.video import warn_if_mp4_not_faststart
+
+                faststart_warn_en = warn_if_mp4_not_faststart(video_en)
+                if episode and episode.video_url_r2_en:
+                    _delete_media_key(episode.video_url_r2_en)
+                episode.video_url_r2_en = save_episode_video(
+                    video_en, series_id=series.id, lang="en"
+                )
+                if faststart_warn_en:
+                    flash(faststart_warn_en, "warning")
+            except ValueError as e:
+                flash(str(e), "error")
+                return render_template("streaming/admin/episode_form.html", **ctx)
+
+        hls_file = request.files.get("hls_master")
+        if hls_file and hls_file.filename:
+            try:
+                if not episode.id:
+                    db.session.add(episode)
+                    db.session.flush()
+                if episode.hls_url_r2:
+                    delete_episode_hls(episode)
+                episode.hls_url_r2 = save_episode_hls(hls_file, series.id, episode.id)
             except ValueError as e:
                 flash(str(e), "error")
                 return render_template("streaming/admin/episode_form.html", **ctx)
@@ -217,7 +251,23 @@ def episode_form(episode_id=None):
         db.session.commit()
 
         if new_video_uploaded and episode.video_url_r2:
+            from modules.streaming.services.audio_probe_episode import probe_episode_audio
             from modules.streaming.services.subtitles import enqueue_subtitle_job
+
+            count = probe_episode_audio(episode)
+            db.session.commit()
+            if count > 1:
+                flash(
+                    f"Detectadas {count} pistas de audio en el MP4 (selector en reproductor).",
+                    "info",
+                )
+            elif count == 1:
+                flash("El MP4 tiene 1 pista de audio.", "info")
+            else:
+                flash(
+                    "No se detectaron pistas de audio en el MP4 (verifica el archivo).",
+                    "warning",
+                )
 
             if enqueue_subtitle_job(episode.id):
                 flash(

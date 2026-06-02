@@ -595,6 +595,96 @@ video::cue {
     line-height: 1.35;
 }
 
+.cinema-btn-audio {
+    font-size: 1rem;
+}
+
+.audio-track-bar {
+    max-width: 1400px;
+    margin: 0.75rem auto 0;
+    padding: 0.85rem 1rem;
+    background: rgba(20, 20, 20, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-lg);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.audio-track-label {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.65);
+    font-weight: 600;
+    width: 100%;
+}
+
+.audio-track-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.audio-track-btn {
+    flex: 1 1 auto;
+    min-width: min(100%, 140px);
+    padding: 0.65rem 1rem;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.audio-track-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.audio-track-btn.is-active {
+    background: rgba(229, 9, 20, 0.9);
+    border-color: #e50914;
+    box-shadow: 0 4px 16px rgba(229, 9, 20, 0.35);
+}
+
+@media (min-width: 768px) {
+    .audio-track-bar {
+        margin-top: -0.25rem;
+    }
+    .audio-track-label {
+        width: auto;
+        margin-right: 0.5rem;
+    }
+    .audio-track-options {
+        width: auto;
+        flex: 1;
+    }
+    .audio-track-btn {
+        flex: 0 1 auto;
+        min-width: 120px;
+    }
+}
+
+@media (max-width: 767px) {
+    .audio-track-bar {
+        position: sticky;
+        bottom: 0;
+        z-index: 20;
+        margin: 0.5rem 0.75rem 1rem;
+        box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5);
+    }
+    .audio-track-bar:not(.is-open) .audio-track-options {
+        display: none;
+    }
+    .audio-track-bar.is-open .audio-track-options {
+        display: flex;
+    }
+}
+
 .cinema-progress-wrap { margin-bottom: 0.65rem; }
 
 #progress-bar {
