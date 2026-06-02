@@ -204,13 +204,16 @@ def test_watch_page_shows_cc_and_manifest(user_client, app, sample_content):
     assert f"/api/streaming/subtitles/{ep_id}".encode() in resp.data
     assert b'player-subtitles.js' in resp.data
     assert b'cc-menu' in resp.data
+    assert b'controls' in resp.data
+    assert b'watch-audio-pills' in resp.data
+    assert b'audio-track-bar' not in resp.data
 
 
 def test_watch_hides_cc_without_subtitles(user_client, sample_content):
     ep_id = sample_content["free_episode_id"]
     resp = user_client.get(f"/streaming/watch/{ep_id}")
     assert resp.status_code == 200
-    assert b'btn-cc" class="cinema-btn cinema-btn-cc' in resp.data
+    assert b'id="btn-cc"' in resp.data
     assert b'hidden' in resp.data
 
 

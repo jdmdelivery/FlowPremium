@@ -202,13 +202,17 @@
             tracks: manifest.tracks
         });
 
+        var overlay = document.getElementById('watch-cc-overlay');
+
         if (!manifest.show_cc || !manifest.tracks || !manifest.tracks.length) {
             log('CC hidden — no subtitles ready', manifest.status);
             if (btnCc) btnCc.setAttribute('hidden', 'hidden');
             if (menu) menu.setAttribute('hidden', 'hidden');
+            if (overlay) overlay.setAttribute('hidden', 'hidden');
             return;
         }
 
+        if (overlay) overlay.removeAttribute('hidden');
         if (btnCc) btnCc.removeAttribute('hidden');
 
         var preferred = savedLang(episodeId);

@@ -62,6 +62,24 @@ def test_local_stream_head_returns_accept_ranges(user_client, app, sample_conten
     assert resp.headers.get("Content-Length") == str(len(payload))
 
 
+def test_local_stream_no_range_returns_206(user_client, app, sample_content):
+    """Safari/Android often send Range; server must still answer 206 when coerced."""
+    ep_id = sample_content["free_episode_id"]
+    payload = b"\xcd" * 300
+    rel = _install_local_video(app, "no-range-mobile.mp4", payload)
+
+    with app.app_context():
+        ep = db.session.get(Episode, ep_id)
+        ep.video_url_r2 = rel
+        db.session.commit()
+
+    resp = user_client.get(f"/api/streaming/stream/{ep_id}")
+    assert resp.status_code == 206
+    assert resp.headers.get("Accept-Ranges") == "bytes"
+    assert resp.headers.get("Content-Range") == f"bytes 0-299/{len(payload)}"
+    assert len(resp.data) == len(payload)
+
+
 def test_local_stream_open_range_bytes_0_dash(user_client, app, sample_content):
     ep_id = sample_content["free_episode_id"]
     payload = b"\xab" * 500

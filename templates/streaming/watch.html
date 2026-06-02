@@ -4,16 +4,20 @@
 {% block title %}{{ episode.title }} - {{ t('app_name') }}{% endblock %}
 
 {% block content %}
-<div class="cinema-page">
-    <div class="cinema-topbar fade-in">
+<div class="cinema-page watch-page">
+    <header class="watch-header fade-in">
         <a href="{{ url_for('streaming.series_detail', series_id=episode.series_id) }}" class="cinema-back">&larr; {{ episode.series.title if episode.series else t('back') }}</a>
-        <div class="cinema-episode-info">
+        <div class="watch-title-block">
             <span class="cinema-label">{{ t('episode') }}</span>
-            <h1>{{ episode.title }}</h1>
+            <h1 class="watch-title">{{ episode.title }}</h1>
         </div>
+    </header>
+
+    <div class="watch-audio-row" id="watch-audio-row" hidden>
+        <div class="watch-audio-pills" id="watch-audio-pills" role="group" aria-label="{{ t('audio_language') }}"></div>
     </div>
 
-    <div class="cinema-player-stage fade-in-up" id="player-wrapper"
+    <div class="cinema-player-stage watch-player-stage fade-in-up" id="player-wrapper"
          data-stream-url="{{ stream_url }}"
          data-progress-url="{{ progress_url }}"
          data-episode-id="{{ episode.id }}"
@@ -21,49 +25,32 @@
          data-next-url="{% if next_episode %}{{ url_for('streaming.watch', episode_id=next_episode.id) }}{% endif %}"
          data-next-title="{{ next_episode.title if next_episode else '' }}">
 
-        <video id="video-player" playsinline webkit-playsinline preload="metadata">
+        <video id="video-player"
+               controls
+               playsinline
+               webkit-playsinline
+               preload="metadata"
+               controlsList="nodownload"
+               x-webkit-airplay="allow">
             {% for track in subtitle_manifest.tracks %}
             <track kind="subtitles" src="{{ track.url }}" srclang="{{ track.lang }}" label="{{ track.label }}" default>
             {% endfor %}
         </video>
 
-        <div class="cinema-controls" id="cinema-controls">
-            <div class="cinema-progress-wrap">
-                <input type="range" id="progress-bar" min="0" max="100" value="0" step="0.1">
-            </div>
-            <div class="cinema-controls-row">
-                <div class="cinema-controls-left">
-                    <button type="button" id="btn-play" class="cinema-btn" aria-label="Play">&#9654;</button>
-                    <div class="cinema-time">
-                        <span id="time-current">0:00</span>
-                        <span class="time-sep">/</span>
-                        <span id="time-duration">0:00</span>
-                        <span class="time-remaining" id="time-remaining"> · {{ t('time_remaining') }} 0:00</span>
-                    </div>
-                </div>
-                <div class="cinema-controls-right">
-                    <button type="button" id="btn-audio" class="cinema-btn cinema-btn-audio" aria-label="{{ t('audio_language') }}" {% if not audio_manifest.show_selector %}hidden{% endif %}>🔊</button>
-                    <div class="cc-control-wrap">
-                        <button type="button" id="btn-cc" class="cinema-btn cinema-btn-cc{% if subtitle_manifest.show_cc %} has-subtitles{% endif %}" aria-label="{{ t('subtitles') }}" aria-haspopup="true" {% if not subtitle_manifest.show_cc %}hidden{% endif %}>CC</button>
-                        <div id="cc-menu" class="cc-menu" data-off-label="{{ t('cc_off') }}" role="menu" {% if not subtitle_manifest.show_cc %}hidden{% endif %}></div>
-                    </div>
-                    <button type="button" id="btn-fullscreen" class="cinema-btn" aria-label="Fullscreen">&#9974;</button>
-                </div>
+        <div class="watch-cc-overlay" id="watch-cc-overlay" {% if not subtitle_manifest.show_cc %}hidden{% endif %}>
+            <div class="cc-control-wrap">
+                <button type="button" id="btn-cc" class="watch-cc-btn cinema-btn-cc{% if subtitle_manifest.show_cc %} has-subtitles{% endif %}" aria-label="{{ t('subtitles') }}" aria-haspopup="true">CC</button>
+                <div id="cc-menu" class="cc-menu" data-off-label="{{ t('cc_off') }}" role="menu"></div>
             </div>
         </div>
 
-        <div class="cinema-loading" id="cinema-loading">
+        <div class="cinema-loading" id="cinema-loading" aria-hidden="true">
             <div class="cinema-spinner"></div>
         </div>
     </div>
 
-    <div class="audio-track-bar" id="audio-track-bar" {% if not audio_manifest.show_selector %}hidden{% endif %}>
-        <span class="audio-track-label">{{ t('audio_language') }}</span>
-        <div class="audio-track-options" id="audio-track-options"></div>
-    </div>
-
     {% if next_episode %}
-    <div class="cinema-next fade-in">
+    <div class="cinema-next watch-next fade-in">
         <div class="cinema-next-label">{{ t('next_episode') }}</div>
         <a href="{{ url_for('streaming.watch', episode_id=next_episode.id) }}" class="cinema-next-card">
             <span class="cinema-next-title">{{ next_episode.title }}</span>
@@ -73,7 +60,7 @@
     {% endif %}
 
     {% if episode.description %}
-    <p class="cinema-desc fade-in">{{ episode.description }}</p>
+    <p class="cinema-desc watch-desc fade-in">{{ episode.description }}</p>
     {% endif %}
 </div>
 {% endblock %}

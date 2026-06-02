@@ -1,6 +1,5 @@
 /**
- * Custom audio language selector (MP4 variants, embedded tracks, HLS).
- * Works on iPhone/Android without native video controls.
+ * Audio language pills (MP4 variants + HLS). Mobile uses separate MP4 URLs, not embedded tracks.
  */
 (function (global) {
     'use strict';
@@ -39,14 +38,14 @@
             data.global = trackId;
             data[String(episodeId)] = trackId;
             localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        } catch (e) { /* private mode */ }
+        } catch (e) { /* ignore */ }
     }
 
     function switchableTracks(manifest) {
         if (!manifest || !manifest.tracks) return [];
         return manifest.tracks.filter(function (track) {
             if (track.type === 'url' || track.type === 'hls') return true;
-            if (track.type === 'embedded' && supportsEmbeddedAudio()) return true;
+            if (track.type === 'embedded' && supportsEmbeddedAudio() && !isMobile()) return true;
             return false;
         });
     }
@@ -88,6 +87,23 @@
         }
     }
 
+    function setVideoSource(video, url) {
+        if (!video || !url) return;
+        destroyHls();
+        video.src = url;
+        video.load();
+    }
+
+    function hideAudioRow() {
+        var row = document.getElementById('watch-audio-row');
+        if (row) row.setAttribute('hidden', 'hidden');
+    }
+
+    function showAudioRow() {
+        var row = document.getElementById('watch-audio-row');
+        if (row) row.removeAttribute('hidden');
+    }
+
     function switchEmbeddedTrack(video, track) {
         var list = video.audioTracks;
         if (!list || !list.length) return false;
@@ -98,34 +114,25 @@
         return true;
     }
 
-    function switchUrlTrack(video, track, onReady) {
+    function switchUrlTrack(video, track) {
         var savedTime = video.currentTime || 0;
         var wasPlaying = !video.paused;
-        destroyHls();
-
-        function resume() {
+        setVideoSource(video, track.url);
+        video.addEventListener('loadedmetadata', function once() {
+            video.removeEventListener('loadedmetadata', once);
             if (savedTime > 0 && savedTime < (video.duration || savedTime + 1) - 0.5) {
                 video.currentTime = savedTime;
             }
             if (wasPlaying) {
                 video.play().catch(function () {});
             }
-            if (onReady) onReady();
-        }
-
-        video.addEventListener('loadedmetadata', function once() {
-            video.removeEventListener('loadedmetadata', once);
-            resume();
         });
-        video.src = track.url;
-        video.load();
     }
 
     function applyTrack(video, manifest, track, hls) {
         if (!track) return;
         currentTrackId = track.id;
         if (track.type === 'hls' && track.url) {
-            destroyHls();
             setupHlsPlayer(video, track.url, manifest, currentTrackId, null);
             return;
         }
@@ -133,49 +140,42 @@
             switchUrlTrack(video, track);
             return;
         }
-        if (track.type === 'embedded' && hls && hls.audioTracks && hls.audioTracks.length) {
-            for (var i = 0; i < hls.audioTracks.length; i++) {
-                hls.audioTrack = track.index !== undefined ? track.index : i;
-            }
-            return;
-        }
         if (track.type === 'embedded') {
-            if (!switchEmbeddedTrack(video, track) && isMobile()) {
-                alert('En este dispositivo sube un MP4 en inglés separado o usa HLS.');
-            }
+            switchEmbeddedTrack(video, track);
         }
     }
 
-    function setActiveButton(container, trackId) {
+    function setActivePill(container, trackId) {
         if (!container) return;
-        container.querySelectorAll('.audio-track-btn').forEach(function (btn) {
+        container.querySelectorAll('.watch-audio-pill').forEach(function (btn) {
             btn.classList.toggle('is-active', btn.dataset.trackId === trackId);
+            btn.setAttribute('aria-pressed', btn.dataset.trackId === trackId ? 'true' : 'false');
         });
     }
 
-    function renderAudioButtons(container, manifest, video, episodeId, onSelect) {
+    function renderAudioPills(container, manifest, video, episodeId, onSelect) {
         if (!container) return;
         container.innerHTML = '';
         var tracks = switchableTracks(manifest);
         if (tracks.length < 2) {
-            container.closest('.audio-track-bar')?.setAttribute('hidden', 'hidden');
+            hideAudioRow();
             return;
         }
-        var bar = container.closest('.audio-track-bar');
-        if (bar) bar.removeAttribute('hidden');
+        showAudioRow();
 
         tracks.forEach(function (track) {
             var btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'audio-track-btn';
+            btn.className = 'watch-audio-pill';
             btn.dataset.trackId = track.id;
             btn.setAttribute('aria-pressed', 'false');
             btn.textContent = (track.flag ? track.flag + ' ' : '') + track.label;
             if (track.id === currentTrackId) {
                 btn.classList.add('is-active');
+                btn.setAttribute('aria-pressed', 'true');
             }
             btn.addEventListener('click', function (e) {
-                e.stopPropagation();
+                e.preventDefault();
                 onSelect(track);
                 persistAudio(episodeId, track.id);
             });
@@ -185,6 +185,7 @@
 
     function setupHlsPlayer(video, masterUrl, manifest, defaultTrackId, episodeId) {
         currentTrackId = defaultTrackId || manifest.default;
+        episodeId = episodeId || 0;
 
         function onManifestParsed(hls) {
             var tracks = manifest.tracks && manifest.tracks.length
@@ -200,24 +201,20 @@
                     };
                 });
 
-            var bar = document.getElementById('audio-track-options');
-            renderAudioButtons(bar, { tracks: tracks, default: currentTrackId }, video, episodeId, function (track) {
-                setActiveButton(bar, track.id);
+            var pills = document.getElementById('watch-audio-pills');
+            renderAudioPills(pills, { tracks: tracks, default: currentTrackId }, video, episodeId, function (track) {
+                setActivePill(pills, track.id);
                 applyTrack(video, manifest, track, hls);
             });
 
             var initial = findTrack({ tracks: tracks }, currentTrackId) || tracks[0];
             if (initial) {
                 applyTrack(video, manifest, initial, hls);
-                setActiveButton(bar, initial.id);
-            }
-
-            if (hls.audioTracks.length && !manifest.tracks) {
-                hls.audioTrack = 0;
+                setActivePill(pills, initial.id);
             }
         }
 
-        if (global.Hls && global.Hls.isSupported()) {
+        if (global.Hls && global.Hls.isSupported() && !isMobile()) {
             destroyHls();
             hlsInstance = new global.Hls();
             hlsInstance.loadSource(masterUrl);
@@ -229,19 +226,18 @@
         }
 
         if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            destroyHls();
-            video.src = masterUrl;
+            setVideoSource(video, masterUrl);
             video.addEventListener('loadedmetadata', function onMeta() {
                 video.removeEventListener('loadedmetadata', onMeta);
-                var bar = document.getElementById('audio-track-options');
-                renderAudioButtons(bar, manifest, video, episodeId, function (track) {
-                    setActiveButton(bar, track.id);
+                var pills = document.getElementById('watch-audio-pills');
+                renderAudioPills(pills, manifest, video, episodeId, function (track) {
+                    setActivePill(pills, track.id);
                     applyTrack(video, manifest, track, null);
                 });
                 var initial = findTrack(manifest, currentTrackId) || switchableTracks(manifest)[0];
                 if (initial) {
                     applyTrack(video, manifest, initial, null);
-                    setActiveButton(bar, initial.id);
+                    setActivePill(pills, initial.id);
                 }
             });
         }
@@ -252,7 +248,7 @@
 
         episodeId = episodeId || 0;
         currentTrackId = resolveInitialTrackId(manifest, episodeId);
-        var bar = document.getElementById('audio-track-options');
+        var pills = document.getElementById('watch-audio-pills');
         var tracks = switchableTracks(manifest);
 
         if (manifest.mode === 'hls' && manifest.master_url) {
@@ -260,37 +256,43 @@
             return;
         }
 
-        var defaultTrack = findTrack(manifest, currentTrackId) || tracks[0];
-        if (defaultTrack && defaultTrack.url && !video.src) {
-            video.src = defaultTrack.url;
-        } else if (defaultStreamUrl && !video.src) {
-            video.src = defaultStreamUrl;
+        if (tracks.length < 2) {
+            hideAudioRow();
+            var single = findTrack(manifest, currentTrackId) || tracks[0];
+            var url = (single && single.url) || defaultStreamUrl;
+            if (url) {
+                setVideoSource(video, url);
+            }
+            return;
         }
 
-        renderAudioButtons(bar, manifest, video, episodeId, function (track) {
-            setActiveButton(bar, track.id);
+        var defaultTrack = findTrack(manifest, currentTrackId) || tracks[0];
+        if (defaultTrack && defaultTrack.url) {
+            setVideoSource(video, defaultTrack.url);
+        } else if (defaultStreamUrl) {
+            setVideoSource(video, defaultStreamUrl);
+        }
+
+        renderAudioPills(pills, manifest, video, episodeId, function (track) {
+            setActivePill(pills, track.id);
             applyTrack(video, manifest, track, null);
         });
 
-        if (defaultTrack && defaultTrack.type === 'embedded' && supportsEmbeddedAudio()) {
+        if (defaultTrack && defaultTrack.type === 'embedded' && supportsEmbeddedAudio() && !isMobile()) {
             video.addEventListener('loadedmetadata', function once() {
                 video.removeEventListener('loadedmetadata', once);
                 switchEmbeddedTrack(video, defaultTrack);
-                setActiveButton(bar, defaultTrack.id);
-            });
-        } else if (defaultTrack && defaultTrack.type === 'url' && defaultTrack.id !== 'es') {
-            switchUrlTrack(video, defaultTrack, function () {
-                setActiveButton(bar, defaultTrack.id);
+                setActivePill(pills, defaultTrack.id);
             });
         } else if (defaultTrack) {
-            setActiveButton(bar, defaultTrack.id);
+            setActivePill(pills, defaultTrack.id);
         }
     }
 
     global.FlowPremiumAudio = {
         init: init,
         destroyHls: destroyHls,
-        supportsEmbeddedAudio: supportsEmbeddedAudio,
+        setVideoSource: setVideoSource,
         switchableTracks: switchableTracks,
     };
 })(window);

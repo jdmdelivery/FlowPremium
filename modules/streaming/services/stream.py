@@ -133,21 +133,14 @@ def _stream_local_file(video_ref: str, episode_id: int) -> Response:
         )
         return Response(status=200, headers=headers)
 
-    if not range_header:
-        headers = _video_response_headers(content_length=file_size, status=200)
-        _log_stream_request(
-            episode_id,
-            video_ref,
-            backend="local",
-            status=200,
-            detail=f"GET full file size={file_size} (no Range)",
-        )
-        with open(video_path, "rb") as f:
-            data = f.read()
-        return Response(data, status=200, headers=headers)
+    if not range_header and file_size > 0:
+        range_header = f"bytes=0-{file_size - 1}"
 
-    parsed = _parse_range(file_size, range_header)
+    parsed = _parse_range(file_size, range_header) if range_header else None
     if not parsed:
+        if file_size == 0:
+            _log_stream_request(episode_id, video_ref, backend="local", status=404, detail="empty file")
+            return Response("Video empty", status=404)
         _log_stream_request(episode_id, video_ref, backend="local", status=416, detail="invalid range")
         return Response("Invalid range", status=416, headers={"Content-Range": f"bytes */{file_size}"})
 
