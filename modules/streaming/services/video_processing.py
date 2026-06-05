@@ -18,6 +18,8 @@ from modules.streaming.upload import is_local_media_url, resolve_storage_path
 
 logger = logging.getLogger(__name__)
 
+_MAX_PROCESSING_ERROR_LEN = 50_000
+
 _ACTIVE_JOBS: set[int] = set()
 _JOBS_LOCK = threading.Lock()
 
@@ -106,6 +108,67 @@ def _height_from_playlist_name(folder: str) -> int | None:
     return mapping.get(folder)
 
 
+class FFmpegError(RuntimeError):
+    """Raised when ffmpeg exits with a non-zero status."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        stdout: str = "",
+        stderr: str = "",
+        cmd: list[str] | None = None,
+        returncode: int | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.stdout = stdout or ""
+        self.stderr = stderr or ""
+        self.cmd = list(cmd or [])
+        self.returncode = returncode
+
+
+def _format_ffmpeg_error(err: FFmpegError) -> str:
+    parts = [str(err)]
+    if err.returncode is not None:
+        parts[0] = f"ffmpeg exit code {err.returncode}"
+    if err.cmd:
+        parts.append(f"--- CMD ---\n{' '.join(err.cmd)}")
+    if err.stderr:
+        parts.append(f"--- STDERR ---\n{err.stderr}")
+    if err.stdout:
+        parts.append(f"--- STDOUT ---\n{err.stdout}")
+    text = "\n\n".join(parts)
+    if len(text) > _MAX_PROCESSING_ERROR_LEN:
+        return text[:_MAX_PROCESSING_ERROR_LEN] + "\n\n... (truncated)"
+    return text
+
+
+def _run_ffmpeg(cmd: list[str]) -> subprocess.CompletedProcess[str]:
+    """Run ffmpeg, log full stdout/stderr on failure."""
+    logger.info("FFmpeg command: %s", " ".join(cmd))
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        if result.stdout:
+            logger.debug("FFMPEG STDOUT:\n%s", result.stdout)
+        if result.stderr:
+            logger.debug("FFMPEG STDERR:\n%s", result.stderr)
+        return result
+    except subprocess.CalledProcessError as e:
+        stdout = e.stdout or ""
+        stderr = e.stderr or ""
+        logger.error("FFmpeg failed exit=%s", e.returncode)
+        logger.error("FFMPEG CMD: %s", " ".join(cmd))
+        logger.error("FFMPEG STDOUT:\n%s", stdout)
+        logger.error("FFMPEG STDERR:\n%s", stderr)
+        raise FFmpegError(
+            f"ffmpeg exited with code {e.returncode}",
+            stdout=stdout,
+            stderr=stderr,
+            cmd=cmd,
+            returncode=e.returncode,
+        ) from e
+
+
 def _run_ffmpeg_hls(input_path: Path, output_dir: Path, heights: list[int]) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     if len(heights) == 1:
@@ -140,7 +203,7 @@ def _run_ffmpeg_hls(input_path: Path, output_dir: Path, heights: list[int]) -> N
             str(output_dir / "v0" / "playlist.m3u8"),
         ]
         (output_dir / "v0").mkdir(exist_ok=True)
-        subprocess.run(cmd, check=True, capture_output=True, text=True)
+        _run_ffmpeg(cmd)
         master = (
             "#EXTM3U\n#EXT-X-VERSION:3\n"
             f"#EXT-X-STREAM-INF:BANDWIDTH={preset[1]},RESOLUTION={preset[2]}\n"
@@ -193,7 +256,7 @@ def _run_ffmpeg_hls(input_path: Path, output_dir: Path, heights: list[int]) -> N
         str(output_dir / "v%v" / "segment_%03d.ts"),
         str(output_dir / "v%v" / "playlist.m3u8"),
     ]
-    subprocess.run(cmd, check=True, capture_output=True, text=True)
+    _run_ffmpeg(cmd)
 
 
 def process_episode_hls(episode_id: int) -> None:
@@ -229,12 +292,23 @@ def process_episode_hls(episode_id: int) -> None:
         episode.processing_error = None
         db.session.commit()
         logger.info("HLS ready episode=%s master=%s qualities=%s", episode_id, master_key, qualities)
+    except FFmpegError as exc:
+        error_detail = _format_ffmpeg_error(exc)
+        logger.error("HLS FFmpeg error episode=%s\n%s", episode_id, error_detail)
+        episode = db.session.get(Episode, episode_id)
+        if episode:
+            episode.processing_status = "ready"
+            episode.processing_error = error_detail
+            db.session.commit()
     except Exception as exc:
         logger.exception("HLS processing failed episode=%s", episode_id)
         episode = db.session.get(Episode, episode_id)
         if episode:
             episode.processing_status = "ready"
-            episode.processing_error = str(exc)[:2000]
+            detail = str(exc)
+            if len(detail) > _MAX_PROCESSING_ERROR_LEN:
+                detail = detail[:_MAX_PROCESSING_ERROR_LEN] + "\n\n... (truncated)"
+            episode.processing_error = detail
             db.session.commit()
     finally:
         shutil.rmtree(tmp_root, ignore_errors=True)

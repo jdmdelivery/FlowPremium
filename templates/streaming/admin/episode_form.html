@@ -113,9 +113,13 @@
         <p class="admin-hint">{{ t('hls_master_hint') }}</p>
         {% if episode %}
         <div class="admin-subtitle-panel">
-            <p class="admin-hint">{{ t('processing_status') }}: <strong>{{ episode.processing_status or 'ready' }}</strong>
-                {% if episode.processing_error %}<br><span class="admin-hint-error">{{ episode.processing_error }}</span>{% endif %}
-            </p>
+            <p class="admin-hint">{{ t('processing_status') }}: <strong>{{ episode.processing_status or 'ready' }}</strong></p>
+            {% if episode.processing_error %}
+            <div class="admin-processing-error-wrap">
+                <p class="admin-hint admin-hint-error">{{ t('processing_error') }} (FFmpeg / HLS):</p>
+                <pre class="admin-processing-error" readonly>{{ episode.processing_error }}</pre>
+            </div>
+            {% endif %}
             <p class="admin-hint">{{ t('subtitle_status') }}: <strong>{{ episode.subtitle_status or 'none' }}</strong>
                 {% if episode.subtitle_status == 'ready' %} — {{ t('subtitle_ready') }}{% endif %}
                 {% if episode.subtitle_status == 'processing' or episode.subtitle_status == 'pending' %} — {{ t('subtitle_processing') }}{% endif %}
