@@ -19,9 +19,10 @@ from modules.streaming.services.languages import LANG_BY_CODE, LANG_BY_NAME, nor
 
 logger = logging.getLogger(__name__)
 
-SPEED_OPTIONS = [0.5, 1.0, 1.25, 1.5, 2.0]
+SPEED_OPTIONS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
 QUALITY_LABELS = {
     "auto": "Auto",
+    360: "360P",
     480: "480P",
     720: "720P",
     1080: "1080P",
@@ -102,26 +103,24 @@ def build_playback_manifest(episode: Episode) -> dict[str, Any]:
             }
         )
 
-    subtitle_tracks: list[dict[str, Any]] = []
-    for name in admin_subs:
-        code = LANG_BY_NAME[name]["code"]
-        key = get_subtitle_storage_key(episode, code)
-        if not key:
-            continue
-        if episode.subtitle_status not in ("ready", "none") and code == "es":
-            if not media_file_exists(key):
-                continue
-        elif not media_file_exists(key):
-            continue
-        from modules.streaming.services.languages import player_subtitle_label
+    from modules.streaming.services.episode_media import get_subtitle_storage_keys
+    from modules.streaming.services.languages import player_subtitle_label
 
-        meta = LANG_BY_CODE[code]
+    subtitle_tracks: list[dict[str, Any]] = []
+    sub_keys = get_subtitle_storage_keys(episode)
+    for code in sorted(sub_keys.keys()):
+        key = sub_keys[code]
+        if not key or not media_file_exists(key):
+            continue
+        if code == "es" and episode.subtitle_status in ("pending", "processing", "failed", "skipped"):
+            continue
+        meta = LANG_BY_CODE.get(code, {"flag": "💬", "name": code})
         subtitle_tracks.append(
             {
                 "lang": code,
-                "language": name,
+                "language": meta.get("name", code),
                 "label": player_subtitle_label(code),
-                "flag": meta["flag"],
+                "flag": meta.get("flag", "💬"),
                 "url": _subtitle_url(episode.id, code),
                 "available": True,
             }
@@ -185,16 +184,12 @@ def build_playback_manifest(episode: Episode) -> dict[str, Any]:
             "unavailable_label": "No disponible",
         },
         "qualities": {
-            "available": True,
-            "show_selector": True,
+            "available": bool(hls_url and len(quality_levels) > 1),
+            "show_selector": bool(hls_url and len(quality_levels) > 1),
             "hls_ready": bool(hls_url and len(quality_levels) > 1),
-            "levels": quality_levels if hls_url and len(quality_levels) > 1 else [
-                {"id": "auto", "label": "Auto"},
-                {"id": "mp4", "label": "MP4"},
-            ],
+            "levels": quality_levels if hls_url and len(quality_levels) > 1 else [],
             "default": "auto",
             "button_label": "Calidad",
-            "unavailable_label": "Calidad",
         },
     }
 

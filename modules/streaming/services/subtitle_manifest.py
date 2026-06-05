@@ -20,40 +20,36 @@ def _stream_url(episode_id: int, lang: str) -> str:
 
 
 def build_subtitle_manifest(episode: Episode) -> dict[str, Any]:
-    """Subtitles configured by admin only (no auto-detect)."""
+    """Subtitle tracks available in storage (admin + auto-generated)."""
     from modules.streaming.services.episode_media import (
-        get_admin_subtitle_languages,
-        get_subtitle_storage_key,
+        get_subtitle_storage_keys,
         media_file_exists,
+        sync_episode_track_metadata,
     )
-    from modules.streaming.services.languages import (
-        LANG_BY_CODE,
-        LANG_BY_NAME,
-        player_subtitle_label,
-    )
+    from modules.streaming.services.languages import LANG_BY_CODE, player_subtitle_label
 
-    admin_langs = get_admin_subtitle_languages(episode)
+    sync_episode_track_metadata(episode)
+    keys = get_subtitle_storage_keys(episode)
     tracks: list[dict[str, Any]] = []
-    for name in admin_langs:
-        code = LANG_BY_NAME[name]["code"]
-        key = get_subtitle_storage_key(episode, code)
+
+    for code in sorted(keys.keys()):
+        key = keys[code]
         if not key or not media_file_exists(key):
             continue
-        if code == "es" and episode.subtitle_status not in ("ready", "none"):
-            if episode.subtitle_status in ("pending", "processing", "failed", "skipped"):
-                continue
-        meta = LANG_BY_CODE.get(code, {"flag": "💬"})
+        if code == "es" and episode.subtitle_status in ("pending", "processing", "failed", "skipped"):
+            continue
+        meta = LANG_BY_CODE.get(code, {"flag": "💬", "name": code})
         tracks.append(
             {
                 "lang": code,
-                "language": name,
+                "language": meta.get("name", code),
                 "label": player_subtitle_label(code),
                 "flag": meta.get("flag", "💬"),
                 "url": _stream_url(episode.id, code),
             }
         )
 
-    if not tracks and episode.has_subtitles:
+    if not tracks and episode.has_subtitles and episode.subtitle_status in ("ready", "none"):
         label, flag = SUBTITLE_LABELS["es"]
         tracks = [
             {
