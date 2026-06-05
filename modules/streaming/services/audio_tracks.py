@@ -88,6 +88,40 @@ def build_audio_manifest(episode: Episode) -> dict[str, Any]:
     Build player manifest.
     mode: single | url | embedded | hls
     """
+    from modules.streaming.services.episode_media import (
+        get_admin_audio_languages,
+        get_audio_storage_key,
+        media_file_exists,
+    )
+    from modules.streaming.services.languages import LANG_BY_NAME
+
+    admin_langs = get_admin_audio_languages(episode)
+    if admin_langs:
+        tracks = []
+        for name in admin_langs:
+            code = LANG_BY_NAME[name]["code"]
+            key = get_audio_storage_key(episode, code)
+            if not key or not media_file_exists(key):
+                continue
+            flag = DEFAULT_TRACKS.get(code, (name, "🔊"))[1]
+            tracks.append(
+                _track(
+                    code,
+                    code,
+                    name,
+                    flag,
+                    track_type="url",
+                    url=_stream_url(episode.id, code) if code in ("es", "en") else None,
+                )
+            )
+        if tracks:
+            return {
+                "mode": "url" if len(tracks) > 1 else "single",
+                "tracks": tracks,
+                "default": tracks[0]["id"],
+                "show_selector": len(tracks) > 1,
+            }
+
     tracks: list[dict[str, Any]] = []
     default_id = "es"
 

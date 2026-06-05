@@ -77,6 +77,14 @@ def _episode_migration_columns(dialect_name: str | None = None) -> dict[str, str
             "subtitle_lang": "VARCHAR(10)",
             "subtitle_langs": "TEXT",
             "subtitle_generated_at": ts,
+            "hls_master_url": "VARCHAR(1000)",
+            "audio_languages": "TEXT",
+            "audio_tracks": "TEXT",
+            "subtitle_tracks": "TEXT",
+            "subtitle_languages": "TEXT",
+            "qualities": "TEXT",
+            "processing_status": "VARCHAR(32)",
+            "processing_error": "TEXT",
         }
     return {
         "video_url_r2": "VARCHAR(1000)",
@@ -92,6 +100,14 @@ def _episode_migration_columns(dialect_name: str | None = None) -> dict[str, str
         "subtitle_lang": "VARCHAR(16)",
         "subtitle_langs": "TEXT",
         "subtitle_generated_at": ts,
+        "hls_master_url": "VARCHAR(1000)",
+        "audio_languages": "TEXT",
+        "audio_tracks": "TEXT",
+        "subtitle_tracks": "TEXT",
+        "subtitle_languages": "TEXT",
+        "qualities": "TEXT",
+        "processing_status": "VARCHAR(32)",
+        "processing_error": "TEXT",
     }
 
 
@@ -288,6 +304,22 @@ def migrate_stream_episodes() -> None:
                 "UPDATE stream_episodes SET thumbnail_url = thumbnail "
                 "WHERE (thumbnail_url IS NULL OR TRIM(thumbnail_url) = '') "
                 "AND thumbnail IS NOT NULL AND TRIM(thumbnail) != ''"
+            )
+        )
+    columns = {col["name"] for col in inspector.get_columns("stream_episodes")}
+    if "hls_master_url" in columns and "hls_url_r2" in columns:
+        db.session.execute(
+            text(
+                "UPDATE stream_episodes SET hls_master_url = hls_url_r2 "
+                "WHERE (hls_master_url IS NULL OR TRIM(hls_master_url) = '') "
+                "AND hls_url_r2 IS NOT NULL AND TRIM(hls_url_r2) != ''"
+            )
+        )
+    if "processing_status" in columns:
+        db.session.execute(
+            text(
+                "UPDATE stream_episodes SET processing_status = 'ready' "
+                "WHERE processing_status IS NULL OR TRIM(processing_status) = ''"
             )
         )
     db.session.commit()

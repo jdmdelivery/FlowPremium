@@ -191,6 +191,12 @@
         }
     }
 
+    function selectLang(video, episodeId, lang) {
+        var btnCc = document.getElementById('dw-btn-subtitles') || document.getElementById('btn-cc');
+        persistLang(episodeId, lang);
+        applyChoice(video, lang === 'off' ? 'off' : lang, btnCc);
+    }
+
     function init(video, episodeId, btnCc) {
         var manifest = readManifest();
         var menu = document.getElementById('cc-menu');
@@ -281,5 +287,5 @@
         });
     }
 
-    global.FlowPremiumSubtitles = { init: init };
+    global.FlowPremiumSubtitles = { init: init, selectLang: selectLang };
 })(window);

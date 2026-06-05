@@ -37,9 +37,15 @@ def get_episode_stream_url(user, episode: Episode, lang: str = "es") -> str:
 
 
 def resolve_episode_video_key(episode: Episode, lang: str | None = None) -> str | None:
-    """Pick storage key for episode video (Spanish default, optional English variant)."""
-    code = (lang or "es").lower().strip()
-    if code in ("en", "eng", "english") and episode.video_url_r2_en:
+    """Pick storage key for episode video by admin language code."""
+    from modules.streaming.services.episode_media import get_audio_storage_key
+    from modules.streaming.services.languages import normalize_lang_code
+
+    code = normalize_lang_code(lang or "es") or "es"
+    key = get_audio_storage_key(episode, code)
+    if key:
+        return key
+    if code == "en" and episode.video_url_r2_en:
         return episode.video_url_r2_en
     return episode.video_url_r2
 

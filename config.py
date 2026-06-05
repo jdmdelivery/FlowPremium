@@ -97,6 +97,10 @@ class Config:
     WHISPER_LANGUAGE = os.environ.get("WHISPER_LANGUAGE", "es")
     WHISPER_DEVICE = os.environ.get("WHISPER_DEVICE", "cpu")
     WHISPER_COMPUTE_TYPE = os.environ.get("WHISPER_COMPUTE_TYPE", "int8")
+    VIDEO_HLS_PROCESSING_ENABLED = os.environ.get(
+        "VIDEO_HLS_PROCESSING_ENABLED", "true"
+    ).lower() in ("1", "true", "yes")
+    FFMPEG_PATH = os.environ.get("FFMPEG_PATH", "")
     STORAGE_PROVIDER = os.environ.get(
         "STORAGE_PROVIDER", "r2" if os.environ.get("RENDER") else "local"
     ).lower()

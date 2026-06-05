@@ -9,21 +9,7 @@ from modules.streaming.services.episode_form import _episode_form_context
 from modules.streaming.services.series_delete import delete_series
 from modules.streaming.services.payment import admin_grant_episode, admin_grant_subscription
 from modules.streaming.services.validation import EpisodeValidationError, validate_episode_series_season
-from modules.streaming.upload import (
-    delete_episode_media,
-    _delete_media_key,
-    delete_episode_hls,
-    delete_episode_primary_video,
-    delete_episode_subtitles,
-    delete_episode_thumbnail,
-    delete_episode_video,
-    delete_series_media,
-    save_episode_hls,
-    save_episode_thumbnail,
-    save_episode_video,
-    save_subtitle_vtt,
-    save_series_cover,
-)
+from modules.streaming.upload import delete_series_media, save_series_cover
 from utils.auth import admin_required
 
 streaming_admin_bp = Blueprint("streaming_admin", __name__, url_prefix="/admin/streaming")
@@ -191,96 +177,35 @@ def episode_form(episode_id=None):
 
         video = request.files.get("video")
         new_video_uploaded = bool(video and video.filename)
-        if new_video_uploaded:
-            try:
-                from utils.video import warn_if_mp4_not_faststart
-
-                faststart_warn = warn_if_mp4_not_faststart(video)
-                if episode and episode.video_url_r2:
-                    delete_episode_primary_video(episode)
-                    delete_episode_subtitles(episode)
-                    episode.subtitle_url = None
-                    episode.subtitle_url_es = None
-                    episode.subtitle_url_en = None
-                    episode.subtitle_langs = None
-                    episode.subtitle_generated_at = None
-                    episode.subtitle_status = "none"
-                episode.video_url_r2 = save_episode_video(video, series_id=series.id, lang="es")
-                if faststart_warn:
-                    flash(faststart_warn, "warning")
-            except ValueError as e:
-                flash(str(e), "error")
-                return render_template("streaming/admin/episode_form.html", **ctx)
-
-        video_en = request.files.get("video_en")
-        if video_en and video_en.filename:
-            try:
-                from utils.video import warn_if_mp4_not_faststart
-
-                faststart_warn_en = warn_if_mp4_not_faststart(video_en)
-                if episode and episode.video_url_r2_en:
-                    _delete_media_key(episode.video_url_r2_en)
-                episode.video_url_r2_en = save_episode_video(
-                    video_en, series_id=series.id, lang="en"
-                )
-                if faststart_warn_en:
-                    flash(faststart_warn_en, "warning")
-            except ValueError as e:
-                flash(str(e), "error")
-                return render_template("streaming/admin/episode_form.html", **ctx)
-
-        hls_file = request.files.get("hls_master")
-        if hls_file and hls_file.filename:
-            try:
-                if not episode.id:
-                    db.session.add(episode)
-                    db.session.flush()
-                if episode.hls_url_r2:
-                    delete_episode_hls(episode)
-                episode.hls_url_r2 = save_episode_hls(hls_file, series.id, episode.id)
-            except ValueError as e:
-                flash(str(e), "error")
-                return render_template("streaming/admin/episode_form.html", **ctx)
-
-        subtitle_en = request.files.get("subtitle_en")
-        if subtitle_en and subtitle_en.filename:
-            if not episode.id:
-                db.session.add(episode)
-                db.session.flush()
-            try:
-                content = subtitle_en.read().decode("utf-8-sig")
-                if not content.strip().upper().startswith("WEBVTT"):
-                    raise ValueError("El archivo debe ser WebVTT (.vtt)")
-                from modules.streaming.upload import delete_episode_subtitle_lang
-
-                delete_episode_subtitle_lang(episode, "en")
-                key = save_subtitle_vtt(content, series.id, episode.id, lang="en")
-                episode.subtitle_url_en = key
-                langs = ["es"] if (episode.subtitle_url_es or episode.subtitle_url) else []
-                if "en" not in langs:
-                    langs.append("en")
-                import json
-
-                episode.subtitle_langs = json.dumps(langs)
-                flash("Subtítulo inglés (VTT) guardado para uso futuro.", "success")
-            except (UnicodeDecodeError, ValueError) as e:
-                flash(str(e), "error")
-                return render_template("streaming/admin/episode_form.html", **ctx)
-
-        thumb = request.files.get("thumbnail")
-        if thumb and thumb.filename:
-            try:
-                if episode and episode.thumbnail_url:
-                    delete_episode_thumbnail(episode)
-                episode.thumbnail_url = save_episode_thumbnail(thumb, series_id=series.id)
-            except ValueError as e:
-                flash(str(e), "error")
-                return render_template("streaming/admin/episode_form.html", **ctx)
 
         db.session.add(episode)
+        db.session.flush()
+
+        try:
+            from modules.streaming.services.episode_admin import apply_episode_form_uploads
+
+            upload_messages = apply_episode_form_uploads(
+                episode,
+                request,
+                series.id,
+                new_video_uploaded=new_video_uploaded,
+            )
+            for level, msg in upload_messages:
+                flash(msg, level)
+        except ValueError as e:
+            flash(str(e), "error")
+            return render_template("streaming/admin/episode_form.html", **ctx)
+
         db.session.commit()
 
         if new_video_uploaded and episode.video_url_r2:
+            from modules.streaming.services.video_processing import enqueue_hls_job
+
+            if enqueue_hls_job(episode.id):
+                flash(
+                    "Conversión HLS en segundo plano (480p/720p/1080p). El MP4 ya está disponible.",
+                    "info",
+                )
             from modules.streaming.services.audio_probe_episode import probe_episode_audio
             from modules.streaming.services.subtitles import enqueue_subtitle_job
 

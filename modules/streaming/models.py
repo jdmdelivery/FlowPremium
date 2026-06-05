@@ -84,7 +84,15 @@ class Episode(db.Model):
     video_url_r2 = db.Column(db.String(1000))
     video_url_r2_en = db.Column(db.String(1000))
     hls_url_r2 = db.Column(db.String(1000))
+    hls_master_url = db.Column(db.String(1000))
     audio_tracks_json = db.Column(db.Text)
+    audio_languages = db.Column(db.Text)
+    audio_tracks = db.Column(db.Text)
+    subtitle_tracks = db.Column(db.Text)
+    subtitle_languages = db.Column(db.Text)
+    qualities = db.Column(db.Text)
+    processing_status = db.Column(db.String(32), default="ready", nullable=False)
+    processing_error = db.Column(db.Text)
     thumbnail_url = db.Column(db.String(1000))
     subtitle_url = db.Column(db.String(1000))
     subtitle_url_es = db.Column(db.String(1000))
@@ -113,18 +121,23 @@ class Episode(db.Model):
         return bool(self.video_url_r2)
 
     @property
+    def hls_playlist_key(self) -> str | None:
+        return self.hls_master_url or self.hls_url_r2
+
+    @property
+    def is_processing(self) -> bool:
+        return (self.processing_status or "ready").lower() in ("pending", "processing")
+
+    @property
     def has_subtitles(self) -> bool:
         return self.subtitle_status == "ready" and bool(
             self.subtitle_url_es or self.subtitle_url
         )
 
     def subtitle_storage_key(self, lang: str) -> str | None:
-        code = (lang or "es").lower()[:2]
-        if code == "en" and self.subtitle_url_en:
-            return self.subtitle_url_en
-        if code == "es":
-            return self.subtitle_url_es or self.subtitle_url
-        return None
+        from modules.streaming.services.episode_media import get_subtitle_storage_key
+
+        return get_subtitle_storage_key(self, lang)
 
     def sync_legacy_subtitle_fields(self) -> None:
         if self.subtitle_url_es and not self.subtitle_url:

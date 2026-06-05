@@ -22,15 +22,16 @@
     var saveTimer = null;
     var lastSaved = 0;
 
-    if (window.FlowPremiumAudio) {
+    if (window.FlowPremiumPlayer) {
+        window.FlowPremiumPlayer.init(video, episodeId, streamUrl);
+    } else if (window.FlowPremiumAudio) {
         window.FlowPremiumAudio.init(video, audioManifest, streamUrl, episodeId);
+        if (window.FlowPremiumSubtitles) {
+            window.FlowPremiumSubtitles.init(video, episodeId, document.getElementById('btn-cc'));
+        }
     } else if (streamUrl) {
         video.src = streamUrl;
         video.load();
-    }
-
-    if (window.FlowPremiumSubtitles) {
-        window.FlowPremiumSubtitles.init(video, episodeId, document.getElementById('btn-cc'));
     }
 
     function logVideo(msg, detail) {

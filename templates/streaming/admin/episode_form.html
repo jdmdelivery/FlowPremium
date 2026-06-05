@@ -60,10 +60,62 @@
         <p class="admin-hint">{{ t('video_max_hint') }} {{ max_video_mb }} MB.</p>
         <label>{{ t('video_en') }}<input type="file" name="video_en" accept="video/mp4,video/webm,video/ogg"></label>
         <p class="admin-hint">{{ t('video_en_hint') }}</p>
+
+        <fieldset class="admin-fieldset">
+            <legend>{{ t('admin_audio_languages') }}</legend>
+            <div class="admin-lang-grid">
+                {% for lang in player_languages %}
+                <label class="checkbox">
+                    <input type="checkbox" name="audio_languages" value="{{ lang.name }}"
+                        {% if lang.name in selected_audio_languages %}checked{% endif %}>
+                    {{ lang.name }}
+                </label>
+                {% endfor %}
+            </div>
+        </fieldset>
+
+        <fieldset class="admin-fieldset">
+            <legend>{{ t('admin_subtitle_languages') }}</legend>
+            <div class="admin-lang-grid">
+                {% for lang in player_languages %}
+                <label class="checkbox">
+                    <input type="checkbox" name="subtitle_languages" value="{{ lang.name }}"
+                        {% if lang.name in selected_subtitle_languages %}checked{% endif %}>
+                    {{ lang.name }}
+                </label>
+                {% endfor %}
+            </div>
+        </fieldset>
+
+        <label>{{ t('admin_upload_audio') }}
+            <input type="file" name="upload_audio" accept="video/mp4">
+        </label>
+        <label>{{ t('admin_upload_audio_lang') }}
+            <select name="upload_audio_lang">
+                {% for lang in player_languages %}
+                <option value="{{ lang.code }}">{{ lang.name }}</option>
+                {% endfor %}
+            </select>
+        </label>
+
+        <label>{{ t('admin_upload_subtitle') }}
+            <input type="file" name="upload_subtitle" accept=".vtt,.srt,text/vtt">
+        </label>
+        <label>{{ t('admin_upload_subtitle_lang') }}
+            <select name="upload_subtitle_lang">
+                {% for lang in player_languages %}
+                <option value="{{ lang.code }}">{{ lang.name }}</option>
+                {% endfor %}
+            </select>
+        </label>
+
         <label>{{ t('hls_master') }}<input type="file" name="hls_master" accept=".m3u8,application/vnd.apple.mpegurl"></label>
         <p class="admin-hint">{{ t('hls_master_hint') }}</p>
         {% if episode %}
         <div class="admin-subtitle-panel">
+            <p class="admin-hint">{{ t('processing_status') }}: <strong>{{ episode.processing_status or 'ready' }}</strong>
+                {% if episode.processing_error %}<br><span class="admin-hint-error">{{ episode.processing_error }}</span>{% endif %}
+            </p>
             <p class="admin-hint">{{ t('subtitle_status') }}: <strong>{{ episode.subtitle_status or 'none' }}</strong>
                 {% if episode.subtitle_status == 'ready' %} — {{ t('subtitle_ready') }}{% endif %}
                 {% if episode.subtitle_status == 'processing' or episode.subtitle_status == 'pending' %} — {{ t('subtitle_processing') }}{% endif %}

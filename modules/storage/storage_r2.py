@@ -218,6 +218,41 @@ def upload_hls_playlist(content: str, series_id: int, episode_id: int) -> str:
     return key
 
 
+_HLS_CONTENT_TYPES = {
+    ".m3u8": "application/vnd.apple.mpegurl",
+    ".ts": "video/mp2t",
+}
+
+
+def upload_hls_tree(local_dir: Path, prefix: str) -> tuple[str, list[dict]]:
+    """Upload generated HLS folder to R2; returns (master_key, qualities list)."""
+    if not is_r2_configured():
+        raise ValueError("R2 not configured")
+    client = _get_client()
+    bucket = _bucket()
+    qualities: list[dict] = []
+    height_map = {"v0": 480, "v1": 720, "v2": 1080}
+    master_key = f"{prefix.rstrip('/')}/master.m3u8"
+
+    for path in sorted(local_dir.rglob("*")):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(local_dir).as_posix()
+        key = f"{prefix.rstrip('/')}/{rel}"
+        ext = path.suffix.lower()
+        content_type = _HLS_CONTENT_TYPES.get(ext, "application/octet-stream")
+        client.upload_file(str(path), bucket, key, ExtraArgs={"ContentType": content_type})
+        if rel.endswith("playlist.m3u8") and "/" in rel:
+            folder = rel.split("/")[0]
+            height = height_map.get(folder)
+            if height:
+                qualities.append({"height": height, "url": key, "label": f"{height}P"})
+
+    qualities.sort(key=lambda q: int(q.get("height") or 0))
+    logger.info("Uploaded HLS tree to R2 prefix=%s files=%s", prefix, len(list(local_dir.rglob('*'))))
+    return master_key, qualities
+
+
 def upload_thumbnail(file: FileStorage, series_id: int | None = None) -> str:
     """Upload episode thumbnail to R2; returns object key stored in thumbnail_url."""
     if not is_r2_configured():

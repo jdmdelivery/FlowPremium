@@ -243,7 +243,53 @@
         }
     }
 
+    function initFromPlayback(video, playbackManifest, episodeId) {
+        if (!video || !playbackManifest || !playbackManifest.audio) return;
+        episodeId = episodeId || playbackManifest.episode_id || 0;
+        var tracks = playbackManifest.audio.tracks || [];
+        if (!tracks.length) return;
+        currentTrackId = resolveInitialTrackId(
+            { tracks: tracks, default: playbackManifest.audio.default },
+            episodeId
+        );
+        var track = findTrack({ tracks: tracks }, currentTrackId) || tracks[0];
+        if (track && track.url) {
+            setVideoSource(video, track.url);
+        }
+    }
+
+    function selectTrack(video, trackId) {
+        var manifest = null;
+        try {
+            var el = document.getElementById('player-playback-manifest');
+            manifest = el ? JSON.parse(el.textContent || '{}') : null;
+        } catch (e) {
+            manifest = null;
+        }
+        if (!manifest || !manifest.audio) return;
+        var track = findTrack({ tracks: manifest.audio.tracks }, trackId);
+        if (!track) {
+            track = (manifest.audio.tracks || []).find(function (t) {
+                return t.lang === trackId;
+            });
+        }
+        if (track && track.url) {
+            var savedTime = video.currentTime || 0;
+            var wasPlaying = !video.paused;
+            setVideoSource(video, track.url);
+            video.addEventListener('loadedmetadata', function once() {
+                video.removeEventListener('loadedmetadata', once);
+                if (savedTime > 0) video.currentTime = savedTime;
+                if (wasPlaying) video.play().catch(function () {});
+            });
+            currentTrackId = track.id || track.lang;
+        }
+    }
+
     function init(video, manifest, defaultStreamUrl, episodeId) {
+        if (document.getElementById('dw-toolbar')) {
+            return;
+        }
         if (!video || !manifest) return;
 
         episodeId = episodeId || 0;
@@ -291,6 +337,8 @@
 
     global.FlowPremiumAudio = {
         init: init,
+        initFromPlayback: initFromPlayback,
+        selectTrack: selectTrack,
         destroyHls: destroyHls,
         setVideoSource: setVideoSource,
         switchableTracks: switchableTracks,

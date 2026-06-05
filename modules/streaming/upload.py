@@ -165,6 +165,36 @@ def save_series_cover(file: FileStorage, series_id: int) -> tuple[str, str]:
     return path, path
 
 
+def save_subtitle_file(
+    file: FileStorage, series_id: int, episode_id: int, lang: str = "es"
+) -> tuple[str, str]:
+    """Save .vtt or convert .srt → .vtt. Returns (storage_key, vtt_content)."""
+    if not file or not file.filename:
+        raise ValueError("No subtitle file provided")
+    ext = file.filename.rsplit(".", 1)[-1].lower()
+    raw = file.read()
+    if ext == "srt":
+        from utils.srt import srt_to_vtt
+
+        content = srt_to_vtt(raw.decode("utf-8-sig", errors="replace"))
+    elif ext == "vtt":
+        content = raw.decode("utf-8-sig", errors="replace")
+        if not content.strip().upper().startswith("WEBVTT"):
+            raise ValueError("El archivo VTT no es válido")
+    else:
+        raise ValueError("Formato no soportado. Usa .vtt o .srt")
+    key = save_subtitle_vtt(content, series_id, episode_id, lang=lang)
+    return key, content
+
+
+def save_episode_audio_track(
+    file: FileStorage, series_id: int, episode_id: int, lang: str
+) -> str:
+    """Upload additional language audio (MP4) for an episode."""
+    safe_lang = (lang or "es").lower()[:8]
+    return save_episode_video(file, series_id=series_id, lang=f"audio_{episode_id}_{safe_lang}")
+
+
 def save_episode_video(
     file: FileStorage, series_id: int | None = None, lang: str = "es"
 ) -> str:

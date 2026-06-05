@@ -102,6 +102,8 @@ def sample_content(app):
             is_free=True,
             is_active=True,
             price=0,
+            video_url_r2="storage/streaming/videos/free.mp4",
+            processing_status="ready",
         )
         premium_ep = Episode(
             series_id=series.id,

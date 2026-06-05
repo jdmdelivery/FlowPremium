@@ -4,7 +4,7 @@
 {% block title %}{{ episode.title }} - {{ t('app_name') }}{% endblock %}
 
 {% block content %}
-<div class="cinema-page watch-page">
+<div class="cinema-page watch-page dw-watch">
     <header class="watch-header fade-in">
         <a href="{{ url_for('streaming.series_detail', series_id=episode.series_id) }}" class="cinema-back">&larr; {{ episode.series.title if episode.series else t('back') }}</a>
         <div class="watch-title-block">
@@ -13,39 +13,56 @@
         </div>
     </header>
 
-    <div class="watch-audio-row" id="watch-audio-row" hidden>
-        <div class="watch-audio-pills" id="watch-audio-pills" role="group" aria-label="{{ t('audio_language') }}"></div>
-    </div>
+    {% if playback_manifest.processing_status in ('pending', 'processing') %}
+    <p class="dw-processing-banner fade-in">{{ t('video_processing_banner') }}</p>
+    {% endif %}
 
-    <div class="cinema-player-stage watch-player-stage fade-in-up" id="player-wrapper"
-         data-stream-url="{{ stream_url }}"
-         data-progress-url="{{ progress_url }}"
-         data-episode-id="{{ episode.id }}"
-         data-start="{{ progress.position_seconds if progress else 0 }}"
-         data-next-url="{% if next_episode %}{{ url_for('streaming.watch', episode_id=next_episode.id) }}{% endif %}"
-         data-next-title="{{ next_episode.title if next_episode else '' }}">
+    <div class="dw-player fade-in-up" id="dw-player">
+        <div class="dw-stage cinema-player-stage watch-player-stage" id="player-wrapper"
+             data-stream-url="{{ stream_url }}"
+             data-progress-url="{{ progress_url }}"
+             data-episode-id="{{ episode.id }}"
+             data-start="{{ progress.position_seconds if progress else 0 }}"
+             data-next-url="{% if next_episode %}{{ url_for('streaming.watch', episode_id=next_episode.id) }}{% endif %}"
+             data-next-title="{{ next_episode.title if next_episode else '' }}">
 
-        <video id="video-player"
-               controls
-               playsinline
-               webkit-playsinline
-               preload="metadata"
-               controlsList="nodownload"
-               x-webkit-airplay="allow">
-            {% for track in subtitle_manifest.tracks %}
-            <track kind="subtitles" src="{{ track.url }}" srclang="{{ track.lang }}" label="{{ track.label }}" default>
-            {% endfor %}
-        </video>
+            <video id="video-player"
+                   playsinline
+                   webkit-playsinline
+                   preload="metadata"
+                   controlsList="nodownload"
+                   x-webkit-airplay="allow">
+                {% for track in subtitle_manifest.tracks %}
+                <track kind="subtitles" src="{{ track.url }}" srclang="{{ track.lang }}" label="{{ track.label }}">
+                {% endfor %}
+            </video>
 
-        <div class="watch-cc-overlay" id="watch-cc-overlay" {% if not subtitle_manifest.show_cc %}hidden{% endif %}>
-            <div class="cc-control-wrap">
-                <button type="button" id="btn-cc" class="watch-cc-btn cinema-btn-cc{% if subtitle_manifest.show_cc %} has-subtitles{% endif %}" aria-label="{{ t('subtitles') }}" aria-haspopup="true">CC</button>
-                <div id="cc-menu" class="cc-menu" data-off-label="{{ t('cc_off') }}" role="menu"></div>
+            <button type="button" class="dw-center-play" id="dw-center-play" aria-label="{{ t('play') }}">
+                <span class="dw-center-play-icon" aria-hidden="true">&#9654;</span>
+            </button>
+
+            <div class="cinema-loading" id="cinema-loading" aria-hidden="true">
+                <div class="cinema-spinner"></div>
             </div>
         </div>
 
-        <div class="cinema-loading" id="cinema-loading" aria-hidden="true">
-            <div class="cinema-spinner"></div>
+        <div class="dw-progress">
+            <input type="range" id="dw-progress" class="dw-progress-input" value="0" min="0" max="100" step="0.1" aria-label="Progress">
+            <div class="dw-time-row">
+                <span id="dw-time-current">0:00</span>
+                <span id="dw-time-duration">0:00</span>
+            </div>
+        </div>
+
+        <div class="dw-toolbar" id="dw-toolbar" role="toolbar" aria-label="Player controls">
+            <button type="button" class="dw-tool-btn" id="dw-btn-audio" data-panel="audio">{{ t('audio_language') }}</button>
+            <button type="button" class="dw-tool-btn" id="dw-btn-subtitles" data-panel="subtitles">{{ t('subtitles') }}</button>
+            <button type="button" class="dw-tool-btn" id="dw-btn-speed" data-panel="speed">1.0X</button>
+            <button type="button" class="dw-tool-btn" id="dw-btn-quality" data-panel="quality">Auto</button>
+        </div>
+
+        <div class="dw-popover" id="dw-popover" hidden>
+            <div class="dw-popover-panel" id="dw-popover-panel" role="menu"></div>
         </div>
     </div>
 
@@ -66,12 +83,15 @@
 {% endblock %}
 
 {% block extra_js %}
+<script type="application/json" id="player-playback-manifest">{{ playback_manifest | tojson }}</script>
 <script type="application/json" id="player-audio-manifest">{{ audio_manifest | tojson }}</script>
 <script type="application/json" id="player-subtitle-manifest">{{ subtitle_manifest | tojson }}</script>
-{% if audio_manifest.mode == 'hls' and audio_manifest.master_url %}
+{% if playback_manifest.hls_master_url or audio_manifest.mode == 'hls' %}
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js" defer></script>
 {% endif %}
+<script src="{{ url_for('static', filename='js/player-hls.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/player-subtitles.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/player-audio.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/player-controls.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/player.js') }}" defer></script>
 {% endblock %}
