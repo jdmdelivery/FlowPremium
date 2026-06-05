@@ -199,15 +199,8 @@ def episode_form(episode_id=None):
         db.session.commit()
 
         if new_video_uploaded and episode.video_url_r2:
-            from modules.streaming.services.video_processing import enqueue_hls_job
-
-            if enqueue_hls_job(episode.id):
-                flash(
-                    "Conversión HLS en segundo plano (480p/720p/1080p). El MP4 ya está disponible.",
-                    "info",
-                )
             from modules.streaming.services.audio_probe_episode import probe_episode_audio
-            from modules.streaming.services.subtitles import enqueue_subtitle_job
+            from modules.streaming.services.media_pipeline import enqueue_media_pipeline
 
             count = probe_episode_audio(episode)
             db.session.commit()
@@ -224,9 +217,9 @@ def episode_form(episode_id=None):
                     "warning",
                 )
 
-            if enqueue_subtitle_job(episode.id):
+            if enqueue_media_pipeline(episode.id, run_hls=True, run_subtitles=True):
                 flash(
-                    "Subtítulos automáticos en proceso (puede tardar varios minutos).",
+                    "Procesamiento en segundo plano: primero HLS, luego subtítulos. El MP4 ya está disponible.",
                     "info",
                 )
 

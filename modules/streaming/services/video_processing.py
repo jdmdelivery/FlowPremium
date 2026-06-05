@@ -7,21 +7,18 @@ import logging
 import shutil
 import subprocess
 import tempfile
-import threading
 from pathlib import Path
 
 from flask import current_app
 
 from extensions import db
 from modules.streaming.models import Episode
+from modules.streaming.services.memory_diagnostics import is_low_ram_instance, log_memory
 from modules.streaming.upload import is_local_media_url, resolve_storage_path
 
 logger = logging.getLogger(__name__)
 
 _MAX_PROCESSING_ERROR_LEN = 50_000
-
-_ACTIVE_JOBS: set[int] = set()
-_JOBS_LOCK = threading.Lock()
 
 # (target_height, bandwidth, max_width, max_height) — scale keeps even dimensions.
 QUALITY_PRESETS: tuple[tuple[int, int, int, int], ...] = (
@@ -161,34 +158,113 @@ def _preset_for_height(height: int) -> tuple[int, int, int, int]:
     return (height, 1_000_000, 1280, height)
 
 
+def _heights_for_source(source_height: int) -> list[int]:
+    """Low-RAM instances encode 480p only; 720p optional via config."""
+    max_h = max(source_height, 480)
+    if is_low_ram_instance():
+        heights = [480]
+        if current_app.config.get("VIDEO_HLS_INCLUDE_720P", False) and max_h >= 720:
+            heights.append(720)
+        logger.info(
+            "Low-RAM HLS mode heights=%s (VIDEO_HLS_INCLUDE_720P=%s)",
+            heights,
+            current_app.config.get("VIDEO_HLS_INCLUDE_720P", False),
+        )
+        return heights
+    heights = [h for h, *_ in QUALITY_PRESETS if h <= max_h]
+    return heights or [480]
+
+
 def _run_ffmpeg(cmd: list[str]) -> subprocess.CompletedProcess[str]:
-    """Run ffmpeg, log full stdout/stderr on failure."""
+    """Run ffmpeg in a subprocess; always terminate the child process."""
     logger.info("FFmpeg command: %s", " ".join(cmd))
+    proc: subprocess.Popen[str] | None = None
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        if result.stdout:
-            logger.debug("FFMPEG STDOUT:\n%s", result.stdout)
-        if result.stderr:
-            logger.debug("FFMPEG STDERR:\n%s", result.stderr)
-        return result
-    except subprocess.CalledProcessError as e:
-        stdout = e.stdout or ""
-        stderr = e.stderr or ""
-        logger.error("FFmpeg failed exit=%s", e.returncode)
-        logger.error("FFMPEG CMD: %s", " ".join(cmd))
-        logger.error("FFMPEG STDOUT:\n%s", stdout)
-        logger.error("FFMPEG STDERR:\n%s", stderr)
-        raise FFmpegError(
-            f"ffmpeg exited with code {e.returncode}",
-            stdout=stdout,
-            stderr=stderr,
-            cmd=cmd,
-            returncode=e.returncode,
-        ) from e
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        stdout, stderr = proc.communicate()
+        if proc.returncode != 0:
+            logger.error("FFmpeg failed exit=%s", proc.returncode)
+            logger.error("FFMPEG CMD: %s", " ".join(cmd))
+            logger.error("FFMPEG STDOUT:\n%s", stdout)
+            logger.error("FFMPEG STDERR:\n%s", stderr)
+            raise FFmpegError(
+                f"ffmpeg exited with code {proc.returncode}",
+                stdout=stdout or "",
+                stderr=stderr or "",
+                cmd=cmd,
+                returncode=proc.returncode,
+            )
+        if stdout:
+            logger.debug("FFMPEG STDOUT:\n%s", stdout)
+        if stderr:
+            logger.debug("FFMPEG STDERR:\n%s", stderr)
+        return subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
+    finally:
+        if proc is not None and proc.poll() is None:
+            proc.kill()
+            proc.wait(timeout=5)
+
+
+def _write_master_playlist(output_dir: Path, heights: list[int]) -> None:
+    lines = ["#EXTM3U", "#EXT-X-VERSION:3"]
+    for idx, h in enumerate(heights):
+        preset = _preset_for_height(h)
+        max_w, max_h = preset[2], preset[3]
+        lines.append(f"#EXT-X-STREAM-INF:BANDWIDTH={preset[1]},RESOLUTION={max_w}x{max_h}")
+        lines.append(f"v{idx}/playlist.m3u8")
+    (output_dir / "master.m3u8").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _run_ffmpeg_hls_single(input_path: Path, output_dir: Path, height: int, idx: int) -> None:
+    preset = _preset_for_height(height)
+    max_w, max_h = preset[2], preset[3]
+    variant_dir = output_dir / f"v{idx}"
+    variant_dir.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        ffmpeg_path(),
+        "-y",
+        "-i",
+        str(input_path),
+        "-vf",
+        f"scale={_even_scale_filter(max_w, max_h)}",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "fast",
+        "-crf",
+        "23",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "128k",
+        "-movflags",
+        "+faststart",
+        "-hls_time",
+        "6",
+        "-hls_playlist_type",
+        "vod",
+        "-hls_segment_filename",
+        str(variant_dir / "segment_%03d.ts"),
+        str(variant_dir / "playlist.m3u8"),
+    ]
+    _run_ffmpeg(cmd)
 
 
 def _run_ffmpeg_hls(input_path: Path, output_dir: Path, heights: list[int]) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
+    if is_low_ram_instance() and len(heights) > 1:
+        for idx, h in enumerate(heights):
+            log_memory("before_ffmpeg_hls_variant", extra=f"height={h}")
+            _run_ffmpeg_hls_single(input_path, output_dir, h, idx)
+            log_memory("after_ffmpeg_hls_variant", extra=f"height={h}")
+        _write_master_playlist(output_dir, heights)
+        return
+
     if len(heights) == 1:
         h = heights[0]
         preset = _preset_for_height(h)
@@ -277,7 +353,7 @@ def _run_ffmpeg_hls(input_path: Path, output_dir: Path, heights: list[int]) -> N
     _run_ffmpeg(cmd)
 
 
-def process_episode_hls(episode_id: int) -> None:
+def process_episode_hls(episode_id: int, *, source_path: Path | None = None) -> None:
     episode = db.session.get(Episode, episode_id)
     if not episode or not episode.video_url_r2:
         return
@@ -288,19 +364,25 @@ def process_episode_hls(episode_id: int) -> None:
 
     tmp_root = Path(tempfile.mkdtemp(prefix=f"hls-job-{episode_id}-"))
     source_parent: Path | None = None
+    owns_source_parent = False
     try:
-        source = _resolve_local_video(episode)
-        source_parent = source.parent
+        if source_path and source_path.is_file():
+            source = source_path
+        else:
+            source = _resolve_local_video(episode)
+            source_parent = source.parent
+            owns_source_parent = source_parent.name.startswith("hls-src-")
+
         if not source.is_file():
             raise FileNotFoundError("Source video missing")
 
         height = ffprobe_video_height(source)
-        heights = [h for h, *_ in QUALITY_PRESETS if h <= max(height, 480)]
-        if not heights:
-            heights = [480]
+        heights = _heights_for_source(height)
 
         out_dir = tmp_root / "out"
+        log_memory("before_ffmpeg_hls_encode", episode_id=episode_id, extra=f"heights={heights}")
         _run_ffmpeg_hls(source, out_dir, heights)
+        log_memory("after_ffmpeg_hls_encode", episode_id=episode_id)
 
         master_key, qualities = _upload_hls_tree(out_dir, episode.series_id, episode.id)
         episode.hls_url_r2 = master_key
@@ -315,14 +397,14 @@ def process_episode_hls(episode_id: int) -> None:
         logger.error("HLS FFmpeg error episode=%s\n%s", episode_id, error_detail)
         episode = db.session.get(Episode, episode_id)
         if episode:
-            episode.processing_status = "ready"
+            episode.processing_status = "failed"
             episode.processing_error = error_detail
             db.session.commit()
     except Exception as exc:
         logger.exception("HLS processing failed episode=%s", episode_id)
         episode = db.session.get(Episode, episode_id)
         if episode:
-            episode.processing_status = "ready"
+            episode.processing_status = "failed"
             detail = str(exc)
             if len(detail) > _MAX_PROCESSING_ERROR_LEN:
                 detail = detail[:_MAX_PROCESSING_ERROR_LEN] + "\n\n... (truncated)"
@@ -330,11 +412,12 @@ def process_episode_hls(episode_id: int) -> None:
             db.session.commit()
     finally:
         shutil.rmtree(tmp_root, ignore_errors=True)
-        if source_parent and source_parent.name.startswith("hls-src-"):
+        if owns_source_parent and source_parent:
             shutil.rmtree(source_parent, ignore_errors=True)
 
 
 def enqueue_hls_job(episode_id: int) -> bool:
+    """HLS only (legacy); prefer enqueue_media_pipeline for sequential processing."""
     if not hls_processing_enabled():
         episode = db.session.get(Episode, episode_id)
         if episode:
@@ -346,34 +429,11 @@ def enqueue_hls_job(episode_id: int) -> bool:
         logger.info("ffmpeg not found — skipping HLS for episode %s", episode_id)
         episode = db.session.get(Episode, episode_id)
         if episode:
-            episode.processing_status = "ready"
+            episode.processing_status = "failed"
             episode.processing_error = "ffmpeg no instalado — reproducción MP4 solamente"
             db.session.commit()
         return False
 
-    with _JOBS_LOCK:
-        if episode_id in _ACTIVE_JOBS:
-            return False
-        _ACTIVE_JOBS.add(episode_id)
+    from modules.streaming.services.media_pipeline import enqueue_media_pipeline
 
-    episode = db.session.get(Episode, episode_id)
-    if not episode or not episode.video_url_r2:
-        with _JOBS_LOCK:
-            _ACTIVE_JOBS.discard(episode_id)
-        return False
-
-    episode.processing_status = "pending"
-    db.session.commit()
-
-    app = current_app._get_current_object()
-
-    def _run() -> None:
-        with app.app_context():
-            try:
-                process_episode_hls(episode_id)
-            finally:
-                with _JOBS_LOCK:
-                    _ACTIVE_JOBS.discard(episode_id)
-
-    threading.Thread(target=_run, name=f"hls-{episode_id}", daemon=True).start()
-    return True
+    return enqueue_media_pipeline(episode_id, run_hls=True, run_subtitles=False)

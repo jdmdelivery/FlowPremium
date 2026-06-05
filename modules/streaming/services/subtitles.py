@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+import gc
 import json
 import logging
 import shutil
 import subprocess
 import tempfile
-import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -15,6 +15,7 @@ from flask import current_app
 
 from extensions import db
 from modules.streaming.models import Episode
+from modules.streaming.services.memory_diagnostics import log_memory
 from modules.streaming.services.languages import (
     AUTO_TRANSLATE_SUBTITLE_CODES,
     LANG_BY_CODE,
@@ -35,8 +36,6 @@ logger = logging.getLogger(__name__)
 
 SUBTITLE_STATUSES = frozenset({"none", "pending", "processing", "ready", "failed", "skipped"})
 _ALL_SUBTITLE_CODES = ("es",) + AUTO_TRANSLATE_SUBTITLE_CODES
-_ACTIVE_JOBS: set[int] = set()
-_JOBS_LOCK = threading.Lock()
 
 
 def is_ffmpeg_available() -> bool:
@@ -95,9 +94,15 @@ def segments_to_vtt(segments) -> str:
     return "\n".join(lines).strip() + "\n"
 
 
+def _ffmpeg_bin() -> str:
+    from modules.streaming.services.video_processing import ffmpeg_path
+
+    return ffmpeg_path()
+
+
 def _extract_audio_wav(video_path: Path, wav_path: Path) -> None:
     cmd = [
-        "ffmpeg",
+        _ffmpeg_bin(),
         "-y",
         "-i",
         str(video_path),
@@ -110,26 +115,45 @@ def _extract_audio_wav(video_path: Path, wav_path: Path) -> None:
         "1",
         str(wav_path),
     ]
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
-    if proc.returncode != 0:
-        err = (proc.stderr or proc.stdout or "ffmpeg failed")[-500:]
-        raise RuntimeError(f"ffmpeg audio extract failed: {err}")
+    proc: subprocess.Popen[str] | None = None
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        stdout, stderr = proc.communicate(timeout=3600)
+        if proc.returncode != 0:
+            err = (stderr or stdout or "ffmpeg failed")[-500:]
+            raise RuntimeError(f"ffmpeg audio extract failed: {err}")
+    finally:
+        if proc is not None and proc.poll() is None:
+            proc.kill()
+            proc.wait(timeout=5)
 
 
-def _transcribe_audio(wav_path: Path, language: str):
+def _transcribe_audio(wav_path: Path, language: str, *, episode_id: int | None = None):
     from faster_whisper import WhisperModel
 
     model_size = current_app.config.get("WHISPER_MODEL_SIZE", "base")
     device = current_app.config.get("WHISPER_DEVICE", "cpu")
     compute_type = current_app.config.get("WHISPER_COMPUTE_TYPE", "int8")
 
+    log_memory("before_whisper_model_load", episode_id=episode_id, extra=f"model={model_size}")
     model = WhisperModel(model_size, device=device, compute_type=compute_type)
-    segments, _info = model.transcribe(
-        str(wav_path),
-        language=language or None,
-        vad_filter=True,
-    )
-    return list(segments)
+    log_memory("after_whisper_model_load", episode_id=episode_id)
+    try:
+        segments, _info = model.transcribe(
+            str(wav_path),
+            language=language or None,
+            vad_filter=True,
+        )
+        return list(segments)
+    finally:
+        del model
+        gc.collect()
+        log_memory("after_whisper_model_release", episode_id=episode_id)
 
 
 def _materialize_video(episode: Episode, tmp_dir: Path) -> Path:
@@ -162,6 +186,7 @@ def _translate_subtitles_from_es(episode: Episode, vtt_es: str) -> dict[str, str
     from modules.streaming.services.episode_media import set_subtitle_key
     from utils.vtt import translate_vtt
 
+    log_memory("before_subtitle_translation", episode_id=episode.id)
     saved: dict[str, str] = {}
     for code in AUTO_TRANSLATE_SUBTITLE_CODES:
         try:
@@ -191,6 +216,7 @@ def _translate_subtitles_from_es(episode: Episode, vtt_es: str) -> dict[str, str
                 episode.id,
                 code,
             )
+    log_memory("after_subtitle_translation", episode_id=episode.id, extra=f"langs={sorted(saved)}")
     return saved
 
 
@@ -217,7 +243,11 @@ def _sync_episode_subtitle_fields(episode: Episode, *, ready: bool = True) -> No
     sync_episode_track_metadata(episode)
 
 
-def generate_subtitles_for_episode(episode_id: int) -> None:
+def generate_subtitles_for_episode(
+    episode_id: int,
+    *,
+    source_path: Path | None = None,
+) -> None:
     """Whisper Spanish VTT, then auto-translate to EN/PT/FR/IT/DE."""
     ok, reason = prerequisites_ok()
     episode = db.session.get(Episode, episode_id)
@@ -239,13 +269,27 @@ def generate_subtitles_for_episode(episode_id: int) -> None:
     db.session.commit()
 
     tmp_dir = Path(tempfile.mkdtemp(prefix=f"fp_sub_{episode_id}_"))
+    owns_video_tmp = False
     es_ready = False
 
     try:
-        video_path = _materialize_video(episode, tmp_dir)
+        if source_path and source_path.is_file():
+            video_path = source_path
+        else:
+            video_path = _materialize_video(episode, tmp_dir)
+            owns_video_tmp = video_path.parent == tmp_dir
+
         wav_path = tmp_dir / "audio.wav"
+        log_memory("before_ffmpeg_audio_extract", episode_id=episode_id)
         _extract_audio_wav(video_path, wav_path)
-        segments = _transcribe_audio(wav_path, source_lang)
+        log_memory("after_ffmpeg_audio_extract", episode_id=episode_id)
+
+        segments = _transcribe_audio(wav_path, source_lang, episode_id=episode_id)
+        if wav_path.exists():
+            wav_path.unlink()
+        if owns_video_tmp and video_path.exists():
+            video_path.unlink()
+
         vtt_es = segments_to_vtt(segments)
         if not vtt_es.strip() or vtt_es.strip() == "WEBVTT":
             raise RuntimeError("No speech detected for subtitles")
@@ -287,12 +331,11 @@ def generate_subtitles_for_episode(episode_id: int) -> None:
             db.session.commit()
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
-        with _JOBS_LOCK:
-            _ACTIVE_JOBS.discard(episode_id)
+        gc.collect()
 
 
 def enqueue_subtitle_job(episode_id: int, *, force: bool = False) -> bool:
-    """Queue subtitle generation without blocking the upload request."""
+    """Queue subtitles after any active HLS job (sequential pipeline)."""
     ok, reason = prerequisites_ok()
     if not ok:
         logger.info("Not enqueueing subtitles for episode %s: %s", episode_id, reason)
@@ -306,33 +349,25 @@ def enqueue_subtitle_job(episode_id: int, *, force: bool = False) -> bool:
     if not episode or not episode.video_url_r2:
         return False
 
-    with _JOBS_LOCK:
-        if episode_id in _ACTIVE_JOBS:
-            logger.info("Subtitle job already running for episode %s", episode_id)
-            return False
-        if not force and episode.subtitle_status in ("pending", "processing"):
-            return False
-        if not force and episode.subtitle_status == "ready" and (
-            episode.subtitle_url_es or episode.subtitle_url
-        ):
-            logger.info("Subtitles already ready for episode %s", episode_id)
-            return False
-        _ACTIVE_JOBS.add(episode_id)
+    from modules.streaming.services.media_pipeline import (
+        enqueue_media_pipeline,
+        is_episode_pipeline_active,
+    )
 
-    episode.subtitle_status = "pending"
-    db.session.commit()
+    if is_episode_pipeline_active(episode_id):
+        logger.info("Pipeline already active for episode %s", episode_id)
+        return False
+    if not force and episode.subtitle_status in ("pending", "processing"):
+        return False
+    if not force and episode.subtitle_status == "ready" and (
+        episode.subtitle_url_es or episode.subtitle_url
+    ):
+        logger.info("Subtitles already ready for episode %s", episode_id)
+        return False
 
-    app = current_app._get_current_object()
-
-    def _run() -> None:
-        with app.app_context():
-            try:
-                generate_subtitles_for_episode(episode_id)
-            except Exception:
-                pass
-            finally:
-                with _JOBS_LOCK:
-                    _ACTIVE_JOBS.discard(episode_id)
-
-    threading.Thread(target=_run, name=f"subtitle-{episode_id}", daemon=True).start()
-    return True
+    return enqueue_media_pipeline(
+        episode_id,
+        run_hls=False,
+        run_subtitles=True,
+        force_subtitles=force,
+    )

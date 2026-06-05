@@ -103,6 +103,14 @@ class Config:
     VIDEO_HLS_PROCESSING_ENABLED = os.environ.get(
         "VIDEO_HLS_PROCESSING_ENABLED", "true"
     ).lower() in ("1", "true", "yes")
+    VIDEO_HLS_LOW_RAM = os.environ.get("VIDEO_HLS_LOW_RAM", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    ) or None
+    VIDEO_HLS_INCLUDE_720P = os.environ.get(
+        "VIDEO_HLS_INCLUDE_720P", "false"
+    ).lower() in ("1", "true", "yes")
     FFMPEG_PATH = os.environ.get("FFMPEG_PATH", "")
     STORAGE_PROVIDER = os.environ.get(
         "STORAGE_PROVIDER", "r2" if os.environ.get("RENDER") else "local"

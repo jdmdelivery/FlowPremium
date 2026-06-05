@@ -113,18 +113,39 @@
         <p class="admin-hint">{{ t('hls_master_hint') }}</p>
         {% if episode %}
         <div class="admin-subtitle-panel">
-            <p class="admin-hint">{{ t('processing_status') }}: <strong>{{ episode.processing_status or 'ready' }}</strong></p>
+            <p class="admin-hint">{{ t('hls_status') }}:
+                <strong>
+                {% if episode.processing_status in ('pending', 'processing') %}
+                    {{ t('hls_processing') }}
+                {% elif episode.processing_status == 'failed' %}
+                    {{ t('hls_failed') }}
+                {% elif episode.hls_master_url or episode.hls_url_r2 %}
+                    {{ t('hls_ready') }}
+                {% else %}
+                    {{ t('hls_mp4_only') }}
+                {% endif %}
+                </strong>
+            </p>
             {% if episode.processing_error %}
             <div class="admin-processing-error-wrap">
                 <p class="admin-hint admin-hint-error">{{ t('processing_error') }} (FFmpeg / HLS):</p>
                 <pre class="admin-processing-error" readonly>{{ episode.processing_error }}</pre>
             </div>
             {% endif %}
-            <p class="admin-hint">{{ t('subtitle_status') }}: <strong>{{ episode.subtitle_status or 'none' }}</strong>
-                {% if episode.subtitle_status == 'ready' %} — {{ t('subtitle_ready') }}{% endif %}
-                {% if episode.subtitle_status == 'processing' or episode.subtitle_status == 'pending' %} — {{ t('subtitle_processing') }}{% endif %}
-                {% if episode.subtitle_status == 'failed' %} — {{ t('subtitle_failed') }}{% endif %}
-                {% if episode.subtitle_status == 'skipped' %} — {{ t('subtitle_skipped') }}{% endif %}
+            <p class="admin-hint">{{ t('subtitle_status') }}:
+                <strong>
+                {% if episode.subtitle_status in ('pending', 'processing') %}
+                    {{ t('subtitles_processing') }}
+                {% elif episode.subtitle_status == 'ready' %}
+                    {{ t('subtitles_ready') }}
+                {% elif episode.subtitle_status == 'failed' %}
+                    {{ t('subtitles_failed') }}
+                {% elif episode.subtitle_status == 'skipped' %}
+                    {{ t('subtitle_skipped') }}
+                {% else %}
+                    {{ t('subtitles_none') }}
+                {% endif %}
+                </strong>
             </p>
             {% if episode.subtitle_generated_at %}
             <p class="admin-hint">{{ t('subtitle_generated_at') }}: {{ episode.subtitle_generated_at.strftime('%Y-%m-%d %H:%M UTC') }}</p>

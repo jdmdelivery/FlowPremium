@@ -22,6 +22,7 @@
              data-stream-url="{{ stream_url }}"
              data-progress-url="{{ progress_url }}"
              data-episode-id="{{ episode.id }}"
+             data-duration="{{ episode.duration_seconds or 0 }}"
              data-start="{{ progress.position_seconds if progress else 0 }}"
              data-next-url="{% if next_episode %}{{ url_for('streaming.watch', episode_id=next_episode.id) }}{% endif %}"
              data-next-title="{{ next_episode.title if next_episode else '' }}">
