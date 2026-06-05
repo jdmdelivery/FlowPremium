@@ -126,6 +126,15 @@ def get_admin_subtitle_languages(episode: Episode) -> list[str]:
     stored = parse_admin_language_list(_loads_json(episode.subtitle_languages, []))
     if stored:
         return stored
+    keys = get_subtitle_storage_keys(episode)
+    if keys and episode.subtitle_status == "ready":
+        from modules.streaming.services.languages import SUPPORTED_LANGUAGE_CODES
+
+        return [
+            LANG_BY_CODE[code]["name"]
+            for code in SUPPORTED_LANGUAGE_CODES
+            if code in keys
+        ]
     if episode.has_subtitles:
         return [LANG_BY_CODE["es"]["name"]]
     legacy = _loads_json(episode.subtitle_langs, [])
@@ -172,12 +181,16 @@ def sync_episode_track_metadata(episode: Episode) -> None:
         if not key:
             continue
         exists = media_file_exists(key)
+        from modules.streaming.services.languages import player_subtitle_label
+
+        stream_path = f"/api/streaming/subtitles/{episode.id}?lang={code}"
         subtitle_out.append(
             {
                 "language": name,
-                "label": name,
+                "label": player_subtitle_label(code),
                 "lang": code,
                 "key": key,
+                "url": stream_path,
                 "available": exists,
             }
         )
@@ -245,9 +258,8 @@ def set_subtitle_key(episode: Episode, code: str, key: str) -> None:
         )
     episode.subtitle_tracks = json.dumps(tracks, ensure_ascii=False)
 
-    langs = [LANG_BY_CODE[c]["name"] for c in get_subtitle_storage_keys(episode)]
     episode.subtitle_langs = json.dumps(
-        sorted({normalize_lang_code(n) or "" for n in langs if normalize_lang_code(n)}),
+        sorted(get_subtitle_storage_keys(episode).keys()),
         ensure_ascii=False,
     )
 

@@ -158,21 +158,27 @@ def test_subtitle_api_serves_vtt_es(user_client, app, sample_content):
     assert b"WEBVTT" in resp.data
 
 
-def test_subtitle_manifest_cc_es_only(user_client, app, sample_content):
+def test_subtitle_manifest_includes_all_stored_langs(user_client, app, sample_content, monkeypatch):
     ep_id = sample_content["free_episode_id"]
     with app.app_context():
         ep = db.session.get(Episode, ep_id)
         ep.subtitle_url_es = "storage/subtitles/x.vtt"
         ep.subtitle_url_en = "storage/subtitles/y.vtt"
         ep.subtitle_status = "ready"
+        ep.subtitle_langs = json.dumps(["es", "en"])
         db.session.commit()
+
+    monkeypatch.setattr(
+        "modules.streaming.services.episode_media.media_file_exists",
+        lambda key: bool(key),
+    )
 
     resp = user_client.get(f"/api/streaming/subtitles-manifest/{ep_id}")
     assert resp.status_code == 200
     data = resp.get_json()
     assert data["show_cc"] is True
-    assert len(data["tracks"]) == 1
-    assert data["tracks"][0]["lang"] == "es"
+    langs = {t["lang"] for t in data["tracks"]}
+    assert langs == {"es", "en"}
 
 
 def test_build_subtitle_manifest_es_only(app, sample_content):
@@ -215,6 +221,60 @@ def test_watch_hides_cc_without_subtitles(user_client, sample_content):
     resp = user_client.get(f"/streaming/watch/{ep_id}")
     assert resp.status_code == 200
     assert b'id="dw-btn-subtitles"' in resp.data
+
+
+def test_generate_subtitles_auto_translates(app, sample_content, monkeypatch):
+    import json as json_mod
+
+    from modules.streaming.services.subtitles import generate_subtitles_for_episode
+
+    ep_id = sample_content["free_episode_id"]
+    saved_langs: list[str] = []
+
+    def fake_save(content, series_id, episode_id, lang="es"):
+        saved_langs.append(lang)
+        return f"subtitles/{series_id}/{episode_id}/subtitle_{lang}.vtt"
+
+    def fake_translate(vtt, target, source_lang="es"):
+        return vtt.replace("Hola", f"TR_{target}")
+
+    with app.app_context():
+        app.config["SUBTITLES_ENABLED"] = True
+        app.config["SUBTITLE_AUTO_TRANSLATE_ENABLED"] = True
+        ep = db.session.get(Episode, ep_id)
+        ep.video_url_r2 = "storage/streaming/videos/free.mp4"
+        db.session.commit()
+
+    with patch(
+        "modules.streaming.services.subtitles.prerequisites_ok",
+        return_value=(True, "ok"),
+    ), patch(
+        "modules.streaming.services.subtitles._materialize_video",
+        return_value=__import__("pathlib").Path("/tmp/fake.mp4"),
+    ), patch(
+        "modules.streaming.services.subtitles._extract_audio_wav",
+    ), patch(
+        "modules.streaming.services.subtitles._transcribe_audio",
+        return_value=[__import__("types").SimpleNamespace(start=0.0, end=1.0, text="Hola")],
+    ), patch(
+        "modules.streaming.services.subtitles.save_subtitle_vtt",
+        side_effect=fake_save,
+    ), patch(
+        "utils.vtt.translate_vtt",
+        side_effect=fake_translate,
+    ):
+        with app.app_context():
+            generate_subtitles_for_episode(ep_id)
+            ep = db.session.get(Episode, ep_id)
+            assert ep.subtitle_status == "ready"
+            assert "es" in saved_langs
+            assert "en" in saved_langs
+            assert "pt" in saved_langs
+            assert "fr" in saved_langs
+            assert "it" in saved_langs
+            assert "de" in saved_langs
+            langs = json_mod.loads(ep.subtitle_langs or "[]")
+            assert set(langs) >= {"es", "en", "pt", "fr", "it", "de"}
 
 
 def test_admin_regenerate_subtitles(admin_client, app, sample_content):

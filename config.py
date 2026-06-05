@@ -93,6 +93,9 @@ class Config:
         "true",
         "yes",
     )
+    SUBTITLE_AUTO_TRANSLATE_ENABLED = os.environ.get(
+        "SUBTITLE_AUTO_TRANSLATE_ENABLED", "true"
+    ).lower() in ("1", "true", "yes")
     WHISPER_MODEL_SIZE = os.environ.get("WHISPER_MODEL_SIZE", "base")
     WHISPER_LANGUAGE = os.environ.get("WHISPER_LANGUAGE", "es")
     WHISPER_DEVICE = os.environ.get("WHISPER_DEVICE", "cpu")

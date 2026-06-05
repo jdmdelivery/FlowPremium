@@ -1,4 +1,4 @@
-"""Automatic multilingual subtitles: Whisper + translation."""
+"""Automatic multilingual subtitles: Whisper (ES) + auto-translate to other languages."""
 
 from __future__ import annotations
 
@@ -15,13 +15,17 @@ from flask import current_app
 
 from extensions import db
 from modules.streaming.models import Episode
+from modules.streaming.services.languages import (
+    AUTO_TRANSLATE_SUBTITLE_CODES,
+    LANG_BY_CODE,
+    SUPPORTED_LANGUAGE_CODES,
+)
 from modules.streaming.services.subtitle_diagnostics import (
     log_episode_subtitle_state,
     validate_vtt_content,
 )
 from modules.streaming.upload import (
     delete_episode_subtitle_lang,
-    delete_episode_subtitles,
     is_local_media_url,
     resolve_storage_path,
     save_subtitle_vtt,
@@ -30,6 +34,7 @@ from modules.streaming.upload import (
 logger = logging.getLogger(__name__)
 
 SUBTITLE_STATUSES = frozenset({"none", "pending", "processing", "ready", "failed", "skipped"})
+_ALL_SUBTITLE_CODES = ("es",) + AUTO_TRANSLATE_SUBTITLE_CODES
 _ACTIVE_JOBS: set[int] = set()
 _JOBS_LOCK = threading.Lock()
 
@@ -49,6 +54,10 @@ def is_whisper_available() -> bool:
 
 def subtitles_enabled() -> bool:
     return bool(current_app.config.get("SUBTITLES_ENABLED"))
+
+
+def subtitle_auto_translate_enabled() -> bool:
+    return bool(current_app.config.get("SUBTITLE_AUTO_TRANSLATE_ENABLED", True))
 
 
 def prerequisites_ok() -> tuple[bool, str]:
@@ -138,21 +147,78 @@ def _materialize_video(episode: Episode, tmp_dir: Path) -> Path:
     return dest
 
 
+def _clear_generated_subtitles(episode: Episode) -> None:
+    for code in _ALL_SUBTITLE_CODES:
+        delete_episode_subtitle_lang(episode, code)
+    episode.subtitle_url_es = None
+    episode.subtitle_url_en = None
+    episode.subtitle_url = None
+    episode.subtitle_tracks = None
+    episode.subtitle_languages = None
+
+
+def _translate_subtitles_from_es(episode: Episode, vtt_es: str) -> dict[str, str]:
+    """Translate Spanish VTT to en/pt/fr/it/de and persist each file."""
+    from modules.streaming.services.episode_media import set_subtitle_key
+    from utils.vtt import translate_vtt
+
+    saved: dict[str, str] = {}
+    for code in AUTO_TRANSLATE_SUBTITLE_CODES:
+        try:
+            vtt_out = translate_vtt(vtt_es, code, source_lang="es")
+            ok, msg = validate_vtt_content(vtt_out)
+            if not ok:
+                logger.warning(
+                    "Translated VTT invalid episode=%s lang=%s: %s",
+                    episode.id,
+                    code,
+                    msg,
+                )
+                continue
+            key = save_subtitle_vtt(vtt_out, episode.series_id, episode.id, lang=code)
+            episode = db.session.get(Episode, episode.id)
+            set_subtitle_key(episode, code, key)
+            saved[code] = key
+            logger.info(
+                "subtitle_%s.vtt ready episode=%s key=%s",
+                code,
+                episode.id,
+                key,
+            )
+        except Exception:
+            logger.exception(
+                "Subtitle translation failed episode=%s lang=%s",
+                episode.id,
+                code,
+            )
+    return saved
+
+
 def _sync_episode_subtitle_fields(episode: Episode, *, ready: bool = True) -> None:
-    langs = ["es"]
-    if episode.subtitle_url_en:
-        langs.append("en")
-    episode.subtitle_langs = json.dumps(langs)
+    from modules.streaming.services.episode_media import (
+        get_subtitle_storage_keys,
+        sync_episode_track_metadata,
+    )
+
+    keys = get_subtitle_storage_keys(episode)
+    langs = sorted(keys.keys())
+    episode.subtitle_langs = json.dumps(langs, ensure_ascii=False)
     episode.subtitle_url = episode.subtitle_url_es
     episode.subtitle_lang = "es"
+
+    names = [LANG_BY_CODE[code]["name"] for code in SUPPORTED_LANGUAGE_CODES if code in keys]
+    episode.subtitle_languages = json.dumps(names, ensure_ascii=False)
+
     if ready and episode.subtitle_url_es:
         episode.subtitle_status = "ready"
         episode.subtitle_generated_at = datetime.utcnow()
+
     episode.sync_legacy_subtitle_fields()
+    sync_episode_track_metadata(episode)
 
 
 def generate_subtitles_for_episode(episode_id: int) -> None:
-    """Whisper Spanish VTT in background; does not auto-translate."""
+    """Whisper Spanish VTT, then auto-translate to EN/PT/FR/IT/DE."""
     ok, reason = prerequisites_ok()
     episode = db.session.get(Episode, episode_id)
     if not episode or not episode.video_url_r2:
@@ -169,9 +235,7 @@ def generate_subtitles_for_episode(episode_id: int) -> None:
     ).strip()[:2]
 
     episode.subtitle_status = "processing"
-    delete_episode_subtitle_lang(episode, "es")
-    episode.subtitle_url_es = None
-    episode.subtitle_url = None
+    _clear_generated_subtitles(episode)
     db.session.commit()
 
     tmp_dir = Path(tempfile.mkdtemp(prefix=f"fp_sub_{episode_id}_"))
@@ -191,11 +255,22 @@ def generate_subtitles_for_episode(episode_id: int) -> None:
 
         key_es = save_subtitle_vtt(vtt_es, episode.series_id, episode.id, lang="es")
         episode = db.session.get(Episode, episode_id)
-        episode.subtitle_url_es = key_es
-        episode.subtitle_url = key_es
+        from modules.streaming.services.episode_media import set_subtitle_key
+
+        set_subtitle_key(episode, "es", key_es)
         es_ready = True
         db.session.commit()
         logger.info("subtitle_es.vtt ready episode=%s key=%s", episode_id, key_es)
+
+        if subtitle_auto_translate_enabled():
+            translated = _translate_subtitles_from_es(episode, vtt_es)
+            logger.info(
+                "Auto-translated subtitles episode=%s langs=%s",
+                episode_id,
+                sorted(translated.keys()),
+            )
+        else:
+            logger.info("Auto-translate disabled; Spanish only episode=%s", episode_id)
 
         episode = db.session.get(Episode, episode_id)
         _sync_episode_subtitle_fields(episode, ready=True)

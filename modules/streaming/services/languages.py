@@ -16,6 +16,26 @@ LANG_BY_NAME: dict[str, dict[str, str]] = {item["name"]: item for item in SUPPOR
 SUPPORTED_LANGUAGE_NAMES: tuple[str, ...] = tuple(item["name"] for item in SUPPORTED_LANGUAGES)
 SUPPORTED_LANGUAGE_CODES: tuple[str, ...] = tuple(item["code"] for item in SUPPORTED_LANGUAGES)
 
+# Auto-translate Spanish Whisper subtitles into these language codes.
+AUTO_TRANSLATE_SUBTITLE_CODES: tuple[str, ...] = ("en", "pt", "fr", "it", "de")
+
+# Labels shown in the player Subtitles menu (native names).
+PLAYER_SUBTITLE_LABELS: dict[str, str] = {
+    "es": "Español",
+    "en": "English",
+    "pt": "Português",
+    "fr": "Français",
+    "it": "Italiano",
+    "de": "Deutsch",
+}
+
+
+def player_subtitle_label(code: str) -> str:
+    item = LANG_BY_CODE.get((code or "").lower()[:2])
+    if not item:
+        return code
+    return PLAYER_SUBTITLE_LABELS.get(item["code"], item["name"])
+
 
 def normalize_lang_code(value: str | None) -> str | None:
     if not value:

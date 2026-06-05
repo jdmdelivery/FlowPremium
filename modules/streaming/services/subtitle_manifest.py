@@ -26,7 +26,11 @@ def build_subtitle_manifest(episode: Episode) -> dict[str, Any]:
         get_subtitle_storage_key,
         media_file_exists,
     )
-    from modules.streaming.services.languages import LANG_BY_CODE, LANG_BY_NAME
+    from modules.streaming.services.languages import (
+        LANG_BY_CODE,
+        LANG_BY_NAME,
+        player_subtitle_label,
+    )
 
     admin_langs = get_admin_subtitle_languages(episode)
     tracks: list[dict[str, Any]] = []
@@ -42,7 +46,8 @@ def build_subtitle_manifest(episode: Episode) -> dict[str, Any]:
         tracks.append(
             {
                 "lang": code,
-                "label": name,
+                "language": name,
+                "label": player_subtitle_label(code),
                 "flag": meta.get("flag", "💬"),
                 "url": _stream_url(episode.id, code),
             }

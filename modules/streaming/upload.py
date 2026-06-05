@@ -89,20 +89,45 @@ def delete_episode_thumbnail(episode) -> None:
 
 def delete_episode_subtitle_lang(episode, lang: str) -> None:
     """Remove subtitle file(s) for one language."""
-    code = (lang or "es").lower()[:2]
-    keys: set[str | None] = set()
+    import json
+
+    from modules.streaming.services.episode_media import get_subtitle_storage_key
+    from modules.streaming.services.languages import normalize_lang_code
+
+    code = normalize_lang_code(lang) or "es"
+    key = get_subtitle_storage_key(episode, code)
+    if key:
+        _delete_media_key(key)
+
     if code == "es":
-        keys.update({episode.subtitle_url, episode.subtitle_url_es})
+        episode.subtitle_url = None
+        episode.subtitle_url_es = None
     elif code == "en":
-        keys.add(episode.subtitle_url_en)
-    for key in keys:
-        if key:
-            _delete_media_key(key)
+        episode.subtitle_url_en = None
+
+    tracks = []
+    if episode.subtitle_tracks:
+        try:
+            tracks = json.loads(episode.subtitle_tracks)
+        except json.JSONDecodeError:
+            tracks = []
+    if isinstance(tracks, list):
+        tracks = [
+            item
+            for item in tracks
+            if not (
+                isinstance(item, dict)
+                and normalize_lang_code(item.get("lang") or item.get("language")) == code
+            )
+        ]
+        episode.subtitle_tracks = json.dumps(tracks, ensure_ascii=False) if tracks else None
 
 
 def delete_episode_subtitles(episode) -> None:
     """Remove all subtitle files for an episode."""
-    for lang in ("es", "en"):
+    from modules.streaming.services.languages import AUTO_TRANSLATE_SUBTITLE_CODES
+
+    for lang in ("es", *AUTO_TRANSLATE_SUBTITLE_CODES):
         delete_episode_subtitle_lang(episode, lang)
 
 

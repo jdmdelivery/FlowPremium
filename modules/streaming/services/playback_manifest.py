@@ -113,12 +113,14 @@ def build_playback_manifest(episode: Episode) -> dict[str, Any]:
                 continue
         elif not media_file_exists(key):
             continue
+        from modules.streaming.services.languages import player_subtitle_label
+
         meta = LANG_BY_CODE[code]
         subtitle_tracks.append(
             {
                 "lang": code,
                 "language": name,
-                "label": name,
+                "label": player_subtitle_label(code),
                 "flag": meta["flag"],
                 "url": _subtitle_url(episode.id, code),
                 "available": True,
