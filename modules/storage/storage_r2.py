@@ -412,37 +412,25 @@ def object_head_meta(key: str) -> dict:
     }
 
 
-def _parse_range_header(range_header: str, file_size: int) -> tuple[int, int] | None:
-    import re
-
-    match = re.match(r"bytes=(\d*)-(\d*)", (range_header or "").strip())
-    if not match:
-        return None
-    start_s, end_s = match.group(1), match.group(2)
-    byte_start = int(start_s) if start_s else 0
-    byte_end = int(end_s) if end_s else file_size - 1
-    byte_end = min(byte_end, file_size - 1)
-    if byte_start > byte_end or byte_start >= file_size:
-        return None
-    return byte_start, byte_end
-
-
 def stream_object_from_r2(
     key: str,
     range_header: str | None = None,
     *,
     method: str = "GET",
-) -> tuple[int, dict[str, str], bytes | object | None]:
+) -> tuple[int, dict[str, str], object | None, dict]:
     """
-    Stream object from R2 with HTTP Range (Safari/iOS/Android require 206 + Content-Range).
-    Returns (status_code, headers, body). body is None for HEAD.
+    Stream object from R2 with bounded HTTP Range (max 2MB per response).
+    Returns (status_code, headers, body_generator, meta). body is None for HEAD.
+    Never buffers the full object in memory.
     """
+    from modules.streaming.services.range_http import clamp_byte_range
+
     if not is_r2_configured():
         raise ValueError("R2 not configured")
 
-    meta = object_head_meta(key)
-    total_size = meta["content_length"]
-    content_type = meta["content_type"]
+    head = object_head_meta(key)
+    total_size = head["content_length"]
+    content_type = head["content_type"]
 
     base_headers: dict[str, str] = {
         "Accept-Ranges": "bytes",
@@ -450,12 +438,14 @@ def stream_object_from_r2(
         "Cache-Control": "private, max-age=3600, no-transform",
     }
 
+    stream_meta: dict = {"file_size": total_size, "range_in": range_header or "-"}
+
     if method.upper() == "HEAD":
         base_headers["Content-Length"] = str(total_size)
-        return 200, base_headers, None
+        return 200, base_headers, None, stream_meta
 
-    # Mobile browsers expect byte-range support; default to full file range → 206.
-    effective_range = range_header or f"bytes=0-{max(0, total_size - 1)}"
+    byte_start, byte_end, effective_range = clamp_byte_range(total_size, range_header)
+    stream_meta["range_out"] = effective_range
 
     resp = _get_client().get_object(
         Bucket=_bucket(),
@@ -463,35 +453,20 @@ def stream_object_from_r2(
         Range=effective_range,
     )
 
-    part_length = int(resp.get("ContentLength") or 0)
-    content_range = resp.get("ContentRange")
-    if not content_range and total_size > 0:
-        parsed = _parse_range_header(effective_range, total_size)
-        if parsed:
-            byte_start, byte_end = parsed
-            content_range = f"bytes {byte_start}-{byte_end}/{total_size}"
+    part_length = byte_end - byte_start + 1
+    content_range = f"bytes {byte_start}-{byte_end}/{total_size}"
 
     headers = {
         **base_headers,
         "Content-Length": str(part_length),
+        "Content-Range": content_range,
     }
-    if content_range:
-        headers["Content-Range"] = content_range
-    status = 206
 
-    max_buffer = 8 * 1024 * 1024
-    if part_length <= max_buffer:
-        data = b"".join(resp["Body"].iter_chunks(chunk_size=256 * 1024))
-        if part_length and len(data) != part_length:
-            logger.warning(
-                "R2 range length mismatch key=%s expected=%s got=%s",
-                key,
-                part_length,
-                len(data),
-            )
-        return status, headers, data
+    def _iter_body():
+        for chunk in resp["Body"].iter_chunks(chunk_size=256 * 1024):
+            yield chunk
 
-    return status, headers, resp["Body"].iter_chunks(chunk_size=256 * 1024)
+    return 206, headers, _iter_body(), stream_meta
 
 
 def get_playback_url(key: str, expires: int = 3600) -> str | None:

@@ -73,7 +73,7 @@ def stream_episode_subtitles(user, episode: Episode) -> Response:
         return _text_response("Storage unavailable", 503)
 
     try:
-        status, headers, body = stream_object_from_r2(key, None)
+        status, headers, body, _meta = stream_object_from_r2(key, None)
     except Exception as exc:
         logger.exception("[subtitles] R2 stream failed key=%s", key)
         log_subtitle_stream_request(

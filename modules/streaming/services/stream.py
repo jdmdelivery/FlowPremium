@@ -1,16 +1,16 @@
 import logging
-import re
 from datetime import datetime
 
 from flask import Response, request
 
 from modules.streaming.models import Episode, WatchProgress
 from modules.streaming.services.access import can_watch
+from modules.streaming.services.range_http import clamp_byte_range
 from modules.streaming.upload import is_local_media_url, resolve_storage_path
 
 logger = logging.getLogger(__name__)
 
-_RANGE_RE = re.compile(r"bytes=(\d*)-(\d*)")
+_READ_CHUNK = 256 * 1024
 
 
 def save_progress(user, episode_id: int, position: int, completed: bool = False) -> WatchProgress:
@@ -75,158 +75,231 @@ def _log_stream_request(
     *,
     backend: str,
     status: int,
-    detail: str,
+    range_in: str,
+    range_out: str,
+    content_length: int,
+    file_size: int | None = None,
+    extra: str = "",
 ) -> None:
     logger.info(
-        "[video] episode=%s backend=%s method=%s range=%s status=%s client=%s key=%s detail=%s",
+        "[video] episode=%s backend=%s method=%s client=%s "
+        "range_in=%s range_out=%s status=%s cl=%s file_size=%s key=%s %s",
         episode_id,
         backend,
         request.method,
-        request.headers.get("Range") or "-",
-        status,
         _client_label(),
+        range_in or "-",
+        range_out or "-",
+        status,
+        content_length,
+        file_size if file_size is not None else "-",
         key,
-        detail,
+        extra,
     )
-
-
-def _parse_range(file_size: int, range_header: str) -> tuple[int, int] | None:
-    match = _RANGE_RE.match(range_header.strip())
-    if not match:
-        return None
-    start_s, end_s = match.group(1), match.group(2)
-    byte_start = int(start_s) if start_s else 0
-    byte_end = int(end_s) if end_s else file_size - 1
-    byte_end = min(byte_end, file_size - 1)
-    if byte_start > byte_end or byte_start >= file_size:
-        return None
-    return byte_start, byte_end
 
 
 def _video_response_headers(
     *,
     content_length: int,
-    byte_start: int | None = None,
-    byte_end: int | None = None,
-    file_size: int | None = None,
-    status: int = 200,
+    byte_start: int,
+    byte_end: int,
+    file_size: int,
 ) -> dict[str, str]:
-    headers = {
+    return {
         "Accept-Ranges": "bytes",
         "Content-Type": "video/mp4",
         "Content-Length": str(content_length),
+        "Content-Range": f"bytes {byte_start}-{byte_end}/{file_size}",
         "Cache-Control": "private, max-age=3600, no-transform",
     }
-    if status == 206 and byte_start is not None and byte_end is not None and file_size is not None:
-        headers["Content-Range"] = f"bytes {byte_start}-{byte_end}/{file_size}"
-    return headers
+
+
+def _local_file_chunks(path, byte_start: int, length: int):
+    with open(path, "rb") as f:
+        f.seek(byte_start)
+        remaining = length
+        while remaining > 0:
+            data = f.read(min(_READ_CHUNK, remaining))
+            if not data:
+                break
+            remaining -= len(data)
+            yield data
 
 
 def _stream_local_file(video_ref: str, episode_id: int) -> Response:
     try:
         video_path = resolve_storage_path(video_ref)
     except (ValueError, FileNotFoundError) as exc:
-        _log_stream_request(episode_id, video_ref, backend="local", status=404, detail=str(exc))
+        _log_stream_request(
+            episode_id,
+            video_ref,
+            backend="local",
+            status=404,
+            range_in="-",
+            range_out="-",
+            content_length=0,
+            extra=str(exc),
+        )
         return Response("Video not found", status=404)
 
     file_size = video_path.stat().st_size
-    range_header = request.headers.get("Range")
+    range_in = request.headers.get("Range") or "-"
 
     if request.method == "HEAD":
-        headers = _video_response_headers(content_length=file_size, status=200)
+        headers = {
+            "Accept-Ranges": "bytes",
+            "Content-Type": "video/mp4",
+            "Content-Length": str(file_size),
+            "Cache-Control": "private, max-age=3600, no-transform",
+        }
         _log_stream_request(
-            episode_id, video_ref, backend="local", status=200, detail=f"HEAD size={file_size}"
+            episode_id,
+            video_ref,
+            backend="local",
+            status=200,
+            range_in=range_in,
+            range_out="-",
+            content_length=file_size,
+            file_size=file_size,
+            extra="HEAD",
         )
         return Response(status=200, headers=headers)
 
-    if not range_header and file_size > 0:
-        range_header = f"bytes=0-{file_size - 1}"
+    try:
+        byte_start, byte_end, range_out = clamp_byte_range(
+            file_size, request.headers.get("Range")
+        )
+    except ValueError as exc:
+        if str(exc) == "invalid range":
+            _log_stream_request(
+                episode_id,
+                video_ref,
+                backend="local",
+                status=416,
+                range_in=range_in,
+                range_out="-",
+                content_length=0,
+                file_size=file_size,
+            )
+            return Response("Invalid range", status=416, headers={"Content-Range": f"bytes */{file_size}"})
+        return Response("Video empty", status=404)
 
-    parsed = _parse_range(file_size, range_header) if range_header else None
-    if not parsed:
-        if file_size == 0:
-            _log_stream_request(episode_id, video_ref, backend="local", status=404, detail="empty file")
-            return Response("Video empty", status=404)
-        _log_stream_request(episode_id, video_ref, backend="local", status=416, detail="invalid range")
-        return Response("Invalid range", status=416, headers={"Content-Range": f"bytes */{file_size}"})
-
-    byte_start, byte_end = parsed
     length = byte_end - byte_start + 1
-
-    with open(video_path, "rb") as f:
-        f.seek(byte_start)
-        data = f.read(length)
-
     headers = _video_response_headers(
         content_length=length,
         byte_start=byte_start,
         byte_end=byte_end,
         file_size=file_size,
-        status=206,
     )
     _log_stream_request(
         episode_id,
         video_ref,
         backend="local",
         status=206,
-        detail=f"bytes {byte_start}-{byte_end}/{file_size}",
+        range_in=range_in,
+        range_out=range_out,
+        content_length=length,
+        file_size=file_size,
     )
-    return Response(data, status=206, headers=headers)
+    return Response(
+        _local_file_chunks(video_path, byte_start, length),
+        status=206,
+        headers=headers,
+        direct_passthrough=True,
+    )
 
 
 def _stream_r2_file(key: str, episode_id: int) -> Response:
     from modules.storage.storage_r2 import is_r2_configured, stream_object_from_r2
 
     if not is_r2_configured():
-        _log_stream_request(episode_id, key, backend="r2", status=503, detail="R2 not configured")
+        _log_stream_request(
+            episode_id,
+            key,
+            backend="r2",
+            status=503,
+            range_in="-",
+            range_out="-",
+            content_length=0,
+            extra="R2 not configured",
+        )
         return Response(
             "Video no disponible. Cloudflare R2 no está accesible en este momento.",
             status=503,
         )
 
-    range_header = request.headers.get("Range")
+    range_in = request.headers.get("Range") or "-"
     try:
-        status, headers, body = stream_object_from_r2(
-            key, range_header, method=request.method
+        status, headers, body, meta = stream_object_from_r2(
+            key,
+            request.headers.get("Range"),
+            method=request.method,
         )
+    except ValueError as exc:
+        if "invalid range" in str(exc):
+            file_size = 0
+            try:
+                from modules.storage.storage_r2 import object_head_meta
+
+                file_size = object_head_meta(key)["content_length"]
+            except Exception:
+                pass
+            _log_stream_request(
+                episode_id,
+                key,
+                backend="r2",
+                status=416,
+                range_in=range_in,
+                range_out="-",
+                content_length=0,
+                file_size=file_size or None,
+            )
+            return Response("Invalid range", status=416, headers={"Content-Range": f"bytes */{file_size}"})
+        logger.exception("[video] R2 stream failed key=%s", key)
+        _log_stream_request(
+            episode_id,
+            key,
+            backend="r2",
+            status=404,
+            range_in=range_in,
+            range_out="-",
+            content_length=0,
+            extra=str(exc),
+        )
+        return Response("Video not found", status=404)
     except Exception as exc:
         logger.exception("[video] R2 stream failed key=%s", key)
-        _log_stream_request(episode_id, key, backend="r2", status=404, detail=str(exc))
+        _log_stream_request(
+            episode_id,
+            key,
+            backend="r2",
+            status=404,
+            range_in=range_in,
+            range_out="-",
+            content_length=0,
+            extra=str(exc),
+        )
         return Response("Video not found", status=404)
 
     headers.setdefault("Accept-Ranges", "bytes")
     headers.setdefault("Content-Type", "video/mp4")
 
-    if request.method == "HEAD" or body is None:
-        _log_stream_request(
-            episode_id,
-            key,
-            backend="r2",
-            status=status,
-            detail=f"HEAD cl={headers.get('Content-Length')}",
-        )
-        return Response(status=status, headers=headers)
-
-    if isinstance(body, bytes):
-        _log_stream_request(
-            episode_id,
-            key,
-            backend="r2",
-            status=status,
-            detail=(
-                f"{headers.get('Content-Range')} "
-                f"len={len(body)} cl={headers.get('Content-Length')}"
-            ),
-        )
-        return Response(body, status=status, headers=headers)
-
+    content_length = int(headers.get("Content-Length") or 0)
     _log_stream_request(
         episode_id,
         key,
         backend="r2",
         status=status,
-        detail=f"stream {headers.get('Content-Range')}",
+        range_in=range_in,
+        range_out=meta.get("range_out", "-"),
+        content_length=content_length,
+        file_size=meta.get("file_size"),
+        extra=headers.get("Content-Range", ""),
     )
+
+    if request.method == "HEAD" or body is None:
+        return Response(status=status, headers=headers)
+
     return Response(body, status=status, headers=headers, direct_passthrough=True)
 
 

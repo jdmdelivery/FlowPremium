@@ -59,9 +59,9 @@ def watch(episode_id):
             return redirect(url_for("auth.login", next=url_for("streaming.watch", episode_id=episode_id)))
         flash("No tienes acceso / No access", "error")
         return redirect(url_for("streaming.series_detail", series_id=episode.series_id))
-    if not is_episode_playable(episode):
+    if not episode.video_url_r2 and not episode.hls_playlist_key:
         flash(
-            "Este video se está procesando. Vuelve en unos minutos.",
+            "Este video aún no está disponible.",
             "warning",
         )
         return redirect(url_for("streaming.series_detail", series_id=episode.series_id))

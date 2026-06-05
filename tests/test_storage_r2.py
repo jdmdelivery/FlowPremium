@@ -103,7 +103,8 @@ def test_stream_proxies_r2_with_range(app, sample_content, admin_client):
                 "Content-Length": "4",
                 "Content-Range": "bytes 0-3/100",
             },
-            b"data",
+            iter([b"data"]),
+            {"file_size": 100, "range_out": "bytes=0-3"},
         ),
     ) as stream_mock:
         resp = admin_client.get(
