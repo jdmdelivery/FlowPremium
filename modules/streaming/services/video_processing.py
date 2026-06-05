@@ -23,10 +23,11 @@ _MAX_PROCESSING_ERROR_LEN = 50_000
 _ACTIVE_JOBS: set[int] = set()
 _JOBS_LOCK = threading.Lock()
 
-QUALITY_PRESETS: tuple[tuple[int, int, str], ...] = (
-    (480, 1_000_000, "854x480"),
-    (720, 2_500_000, "1280x720"),
-    (1080, 5_000_000, "1920x1080"),
+# (target_height, bandwidth, max_width, max_height) — scale keeps even dimensions.
+QUALITY_PRESETS: tuple[tuple[int, int, int, int], ...] = (
+    (480, 1_000_000, 854, 480),
+    (720, 2_500_000, 1280, 720),
+    (1080, 5_000_000, 1920, 1080),
 )
 
 
@@ -143,6 +144,23 @@ def _format_ffmpeg_error(err: FFmpegError) -> str:
     return text
 
 
+def _even_scale_filter(max_width: int, max_height: int, *, escape_commas: bool = False) -> str:
+    """
+    Scale down preserving aspect ratio; width/height always divisible by 2 (libx264).
+    escape_commas=True for filter_complex (commas separate filters).
+    """
+    comma = "\\," if escape_commas else ","
+    ratio = f"min({max_width}/iw{comma}{max_height}/ih)"
+    return f"trunc(iw*{ratio}/2)*2:trunc(ih*{ratio}/2)*2"
+
+
+def _preset_for_height(height: int) -> tuple[int, int, int, int]:
+    for preset in QUALITY_PRESETS:
+        if preset[0] == height:
+            return preset
+    return (height, 1_000_000, 1280, height)
+
+
 def _run_ffmpeg(cmd: list[str]) -> subprocess.CompletedProcess[str]:
     """Run ffmpeg, log full stdout/stderr on failure."""
     logger.info("FFmpeg command: %s", " ".join(cmd))
@@ -173,15 +191,15 @@ def _run_ffmpeg_hls(input_path: Path, output_dir: Path, heights: list[int]) -> N
     output_dir.mkdir(parents=True, exist_ok=True)
     if len(heights) == 1:
         h = heights[0]
-        preset = next((p for p in QUALITY_PRESETS if p[0] == h), (h, 1_000_000, f"scale={h}:-2"))
-        scale = preset[2] if "x" in preset[2] else f"-2:{h}"
+        preset = _preset_for_height(h)
+        max_w, max_h = preset[2], preset[3]
         cmd = [
             ffmpeg_path(),
             "-y",
             "-i",
             str(input_path),
             "-vf",
-            f"scale={scale}:force_original_aspect_ratio=decrease",
+            f"scale={_even_scale_filter(max_w, max_h)}",
             "-c:v",
             "libx264",
             "-preset",
@@ -206,7 +224,7 @@ def _run_ffmpeg_hls(input_path: Path, output_dir: Path, heights: list[int]) -> N
         _run_ffmpeg(cmd)
         master = (
             "#EXTM3U\n#EXT-X-VERSION:3\n"
-            f"#EXT-X-STREAM-INF:BANDWIDTH={preset[1]},RESOLUTION={preset[2]}\n"
+            f"#EXT-X-STREAM-INF:BANDWIDTH={preset[1]},RESOLUTION={max_w}x{max_h}\n"
             "v0/playlist.m3u8\n"
         )
         (output_dir / "master.m3u8").write_text(master, encoding="utf-8")
@@ -216,10 +234,10 @@ def _run_ffmpeg_hls(input_path: Path, output_dir: Path, heights: list[int]) -> N
     maps = []
     var_map = []
     for idx, h in enumerate(heights):
-        preset = next((p for p in QUALITY_PRESETS if p[0] == h), (h, 1_000_000, f"{1280}x{h}"))
-        filters.append(
-            f"[0:v]scale={preset[2]}:force_original_aspect_ratio=decrease[v{idx}]"
-        )
+        preset = _preset_for_height(h)
+        max_w, max_h = preset[2], preset[3]
+        scale = _even_scale_filter(max_w, max_h, escape_commas=True)
+        filters.append(f"[0:v]scale={scale}[v{idx}]")
         maps.extend(["-map", f"[v{idx}]", "-map", "0:a:0"])
         var_map.append(f"v:{idx},a:{idx},name:v{idx}")
         (output_dir / f"v{idx}").mkdir(exist_ok=True)
@@ -277,7 +295,7 @@ def process_episode_hls(episode_id: int) -> None:
             raise FileNotFoundError("Source video missing")
 
         height = ffprobe_video_height(source)
-        heights = [h for h, _, _ in QUALITY_PRESETS if h <= max(height, 480)]
+        heights = [h for h, *_ in QUALITY_PRESETS if h <= max(height, 480)]
         if not heights:
             heights = [480]
 
