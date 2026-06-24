@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ t('contact') }} - {{ t('app_name') }}{% endblock %}
+{% block main_class %}legal-main{% endblock %}
+
+{% block content %}
+<article class="legal-page fade-in">
+    <h1>{{ t('contact') }}</h1>
+    <p>{{ t('contact_intro') }}</p>
+
+    {% if contact_email %}
+    <div class="contact-card">
+        <p class="contact-label">{{ t('email') }}</p>
+        <p><a href="mailto:{{ contact_email }}">{{ contact_email }}</a></p>
+    </div>
+    {% else %}
+    <div class="contact-card">
+        <p>{{ t('contact_no_email') }}</p>
+    </div>
+    {% endif %}
+
+    <section class="contact-links">
+        <p><a href="{{ url_for('legal.privacy_policy') }}">{{ t('privacy_policy') }}</a></p>
+        <p><a href="{{ url_for('legal.terms') }}">{{ t('terms_of_use') }}</a></p>
+        <p><a href="{{ url_for('streaming.index') }}">{{ t('streaming') }}</a></p>
+    </section>
+</article>
+{% endblock %}

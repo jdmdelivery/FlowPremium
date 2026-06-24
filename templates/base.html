@@ -11,6 +11,15 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/streaming.css') }}">
     {% block extra_css %}{% endblock %}
+    {#
+      Google AdSense — después de la aprobación, pegar aquí el script del <head>
+      desde https://www.google.com/adsense (Cuenta → Sitios → Obtener código).
+
+      Formato esperado (reemplazar ca-pub-XXXXXXXXXXXXXXXX con tu ID real):
+      <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX"
+              crossorigin="anonymous"></script>
+    #}
+    {% block adsense_head %}{% endblock %}
 </head>
 <body class="dark-theme {% block body_class %}{% endblock %}">
     {% block nav %}
@@ -54,6 +63,19 @@
     <main class="main-content {% block main_class %}{% endblock %}">
         {% block content %}{% endblock %}
     </main>
+
+    <footer class="site-footer">
+        <div class="site-footer-inner">
+            <p class="site-footer-brand">&copy; {{ t('app_name') }}</p>
+            <nav class="site-footer-nav" aria-label="Legal">
+                <a href="{{ url_for('legal.privacy_policy') }}">{{ t('privacy_policy') }}</a>
+                <span class="site-footer-sep" aria-hidden="true">·</span>
+                <a href="{{ url_for('legal.terms') }}">{{ t('terms_of_use') }}</a>
+                <span class="site-footer-sep" aria-hidden="true">·</span>
+                <a href="{{ url_for('legal.contact') }}">{{ t('contact') }}</a>
+            </nav>
+        </div>
+    </footer>
 
     <script src="{{ url_for('static', filename='js/streaming.js') }}" defer></script>
     {% block extra_js %}{% endblock %}

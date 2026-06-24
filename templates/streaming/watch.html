@@ -13,6 +13,10 @@
         </div>
     </header>
 
+    {% with slot='watch-top' %}
+    {% include "partials/adsense_slot.html" %}
+    {% endwith %}
+
     <div class="dw-player fade-in-up" id="dw-player">
         <div class="dw-stage cinema-player-stage watch-player-stage" id="player-wrapper"
              data-stream-url="{{ stream_url }}"
@@ -55,6 +59,10 @@
             <div class="dw-popover-panel" id="dw-popover-panel" role="menu"></div>
         </div>
     </div>
+
+    {% with slot='watch-bottom' %}
+    {% include "partials/adsense_slot.html" %}
+    {% endwith %}
 
     {% if next_episode %}
     <div class="cinema-next watch-next fade-in">

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{{ t('terms_of_use') }} - {{ t('app_name') }}{% endblock %}
+{% block main_class %}legal-main{% endblock %}
+
+{% block content %}
+<article class="legal-page fade-in">
+    <h1>{{ t('terms_of_use') }}</h1>
+    <p class="legal-updated">{{ t('legal_last_updated') }}: 2026-03-23</p>
+
+    {% if locale == 'en' %}
+    <section>
+        <h2>1. Acceptance</h2>
+        <p>By using {{ t('app_name') }} at stream-premium.com you agree to these Terms of Use. If you do not agree, do not use the service.</p>
+    </section>
+    <section>
+        <h2>2. Service</h2>
+        <p>We provide on-demand streaming of series and episodes. Content availability, quality, and features may change without notice.</p>
+    </section>
+    <section>
+        <h2>3. Accounts</h2>
+        <p>You are responsible for your account credentials and all activity under your account. You must provide accurate information when registering.</p>
+    </section>
+    <section>
+        <h2>4. Payments</h2>
+        <p>Paid episodes and subscriptions are subject to the prices shown at checkout. Refunds follow our payment provider policies unless required by law.</p>
+    </section>
+    <section>
+        <h2>5. Acceptable use</h2>
+        <p>You may not copy, redistribute, scrape, or attempt to bypass access controls. Automated access to video streams is prohibited.</p>
+    </section>
+    <section>
+        <h2>6. Intellectual property</h2>
+        <p>All content, branding, and software remain the property of their respective owners. You receive a limited, personal, non-transferable license to view content you have access to.</p>
+    </section>
+    <section>
+        <h2>7. Limitation of liability</h2>
+        <p>The service is provided "as is". We are not liable for indirect damages, interruptions, or data loss beyond what applicable law requires.</p>
+    </section>
+    <section>
+        <h2>8. Contact</h2>
+        <p><a href="{{ url_for('legal.contact') }}">{{ t('contact') }}</a> · <a href="{{ url_for('legal.privacy_policy') }}">{{ t('privacy_policy') }}</a></p>
+    </section>
+    {% else %}
+    <section>
+        <h2>1. Aceptación</h2>
+        <p>Al usar {{ t('app_name') }} en stream-premium.com aceptas estos Términos de Uso. Si no estás de acuerdo, no utilices el servicio.</p>
+    </section>
+    <section>
+        <h2>2. Servicio</h2>
+        <p>Ofrecemos streaming bajo demanda de series y episodios. La disponibilidad, calidad y funciones pueden cambiar sin previo aviso.</p>
+    </section>
+    <section>
+        <h2>3. Cuentas</h2>
+        <p>Eres responsable de tus credenciales y de la actividad en tu cuenta. Debes proporcionar información veraz al registrarte.</p>
+    </section>
+    <section>
+        <h2>4. Pagos</h2>
+        <p>Episodios de pago y suscripciones están sujetos a los precios mostrados al pagar. Los reembolsos siguen las políticas del proveedor de pago salvo obligación legal.</p>
+    </section>
+    <section>
+        <h2>5. Uso aceptable</h2>
+        <p>No puedes copiar, redistribuir, extraer datos ni eludir controles de acceso. El acceso automatizado a los streams está prohibido.</p>
+    </section>
+    <section>
+        <h2>6. Propiedad intelectual</h2>
+        <p>Todo el contenido, marca y software pertenecen a sus titulares. Recibes una licencia limitada, personal y no transferible para ver el contenido al que tienes acceso.</p>
+    </section>
+    <section>
+        <h2>7. Limitación de responsabilidad</h2>
+        <p>El servicio se ofrece "tal cual". No somos responsables de daños indirectos, interrupciones o pérdida de datos más allá de lo exigido por la ley.</p>
+    </section>
+    <section>
+        <h2>8. Contacto</h2>
+        <p><a href="{{ url_for('legal.contact') }}">{{ t('contact') }}</a> · <a href="{{ url_for('legal.privacy_policy') }}">{{ t('privacy_policy') }}</a></p>
+    </section>
+    {% endif %}
+</article>
+{% endblock %}

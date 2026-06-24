@@ -12,6 +12,10 @@
     </div>
 </section>
 
+{% with slot='series-mid' %}
+{% include "partials/adsense_slot.html" %}
+{% endwith %}
+
 {% for season in seasons %}
 <section class="season-block fade-in-up" style="animation-delay: {{ loop.index0 * 0.06 }}s">
     <h2>{{ t('season') }} {{ season.season_number }} · {{ season.title }}</h2>

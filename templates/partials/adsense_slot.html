@@ -1,0 +1,7 @@
+{# Reusable AdSense placement — no fake ad code. Enable with ADSENSE_SLOTS_ENABLED=true #}
+{% if adsense_slots_enabled %}
+<aside class="ad-slot ad-slot-{{ slot }}" data-ad-slot="{{ slot }}" aria-label="{{ t('ad_slot_label') }}">
+    {# AdSense: pegar aquí el bloque <ins class="adsbygoogle"> de esta unidad (slot: {{ slot }}) #}
+    {# Luego ejecutar: (adsbygoogle = window.adsbygoogle || []).push({}); #}
+</aside>
+{% endif %}

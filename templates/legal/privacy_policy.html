@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}{{ t('privacy_policy') }} - {{ t('app_name') }}{% endblock %}
+{% block main_class %}legal-main{% endblock %}
+
+{% block content %}
+<article class="legal-page fade-in">
+    <h1>{{ t('privacy_policy') }}</h1>
+    <p class="legal-updated">{{ t('legal_last_updated') }}: 2026-03-23</p>
+
+    {% if locale == 'en' %}
+    <section>
+        <h2>1. Introduction</h2>
+        <p>{{ t('app_name') }} ("we", "our", "the service") operates the website stream-premium.com. This Privacy Policy explains how we collect, use, and protect your information when you use our streaming platform.</p>
+    </section>
+    <section>
+        <h2>2. Information we collect</h2>
+        <ul>
+            <li><strong>Account data:</strong> email, username, and password hash when you register.</li>
+            <li><strong>Usage data:</strong> watch progress, purchases, and subscription status.</li>
+            <li><strong>Technical data:</strong> IP address, browser type, device, and pages visited (server logs).</li>
+            <li><strong>Cookies:</strong> session cookies for login and language preference.</li>
+        </ul>
+    </section>
+    <section>
+        <h2>3. Advertising (Google AdSense)</h2>
+        <p>We may display ads through Google AdSense. Google and its partners may use cookies to serve ads based on your visits to this site and other sites. You can opt out of personalized advertising in your <a href="https://www.google.com/settings/ads" rel="noopener noreferrer" target="_blank">Google Ads Settings</a>.</p>
+        <p>Learn how Google uses data: <a href="https://policies.google.com/technologies/partner-sites" rel="noopener noreferrer" target="_blank">Google Partner Sites</a>.</p>
+    </section>
+    <section>
+        <h2>4. How we use your information</h2>
+        <p>To provide streaming access, process payments, improve the service, prevent fraud, and comply with legal obligations.</p>
+    </section>
+    <section>
+        <h2>5. Data sharing</h2>
+        <p>We do not sell your personal data. We may share data with payment processors, hosting providers (e.g. Render, Cloudflare), and analytics/ad partners as needed to operate the service.</p>
+    </section>
+    <section>
+        <h2>6. Your rights</h2>
+        <p>You may request access, correction, or deletion of your account data by contacting us via the <a href="{{ url_for('legal.contact') }}">Contact</a> page.</p>
+    </section>
+    <section>
+        <h2>7. Contact</h2>
+        <p>Questions about this policy: <a href="{{ url_for('legal.contact') }}">{{ t('contact') }}</a>.</p>
+    </section>
+    {% else %}
+    <section>
+        <h2>1. Introducción</h2>
+        <p>{{ t('app_name') }} ("nosotros", "el servicio") opera el sitio stream-premium.com. Esta Política de Privacidad explica cómo recopilamos, usamos y protegemos tu información al usar nuestra plataforma de streaming.</p>
+    </section>
+    <section>
+        <h2>2. Información que recopilamos</h2>
+        <ul>
+            <li><strong>Cuenta:</strong> correo, usuario y contraseña cifrada al registrarte.</li>
+            <li><strong>Uso:</strong> progreso de visualización, compras y estado de suscripción.</li>
+            <li><strong>Técnica:</strong> dirección IP, navegador, dispositivo y páginas visitadas (logs del servidor).</li>
+            <li><strong>Cookies:</strong> sesión de inicio de sesión y preferencia de idioma.</li>
+        </ul>
+    </section>
+    <section>
+        <h2>3. Publicidad (Google AdSense)</h2>
+        <p>Podemos mostrar anuncios mediante Google AdSense. Google y sus socios pueden usar cookies para mostrar anuncios según tus visitas a este y otros sitios. Puedes desactivar la publicidad personalizada en la <a href="https://www.google.com/settings/ads" rel="noopener noreferrer" target="_blank">configuración de anuncios de Google</a>.</p>
+        <p>Más información: <a href="https://policies.google.com/technologies/partner-sites" rel="noopener noreferrer" target="_blank">Sitios asociados de Google</a>.</p>
+    </section>
+    <section>
+        <h2>4. Uso de la información</h2>
+        <p>Para ofrecer acceso al streaming, procesar pagos, mejorar el servicio, prevenir fraude y cumplir obligaciones legales.</p>
+    </section>
+    <section>
+        <h2>5. Compartir datos</h2>
+        <p>No vendemos tus datos personales. Podemos compartirlos con procesadores de pago, hosting (p. ej. Render, Cloudflare) y socios de anuncios según sea necesario para operar el servicio.</p>
+    </section>
+    <section>
+        <h2>6. Tus derechos</h2>
+        <p>Puedes solicitar acceso, corrección o eliminación de tu cuenta contactándonos en la página de <a href="{{ url_for('legal.contact') }}">Contacto</a>.</p>
+    </section>
+    <section>
+        <h2>7. Contacto</h2>
+        <p>Dudas sobre esta política: <a href="{{ url_for('legal.contact') }}">{{ t('contact') }}</a>.</p>
+    </section>
+    {% endif %}
+</article>
+{% endblock %}

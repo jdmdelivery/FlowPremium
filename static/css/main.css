@@ -416,3 +416,165 @@ img { max-width: 100%; display: block; }
 @media (max-width: 480px) {
     .auth-form-premium { padding: 1.5rem 1.25rem; }
 }
+
+/* ── Site footer (legal / AdSense) ── */
+.site-footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 1rem clamp(0.75rem, 3vw, 2rem) max(1rem, env(safe-area-inset-bottom));
+    background: #050505;
+}
+
+.site-footer-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+}
+
+.site-footer-brand {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.site-footer-nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.5rem;
+    font-size: 0.82rem;
+}
+
+.site-footer-nav a {
+    color: rgba(255, 255, 255, 0.72);
+    text-decoration: none;
+    transition: color var(--transition);
+}
+
+.site-footer-nav a:hover {
+    color: #fff;
+}
+
+.site-footer-sep {
+    color: rgba(255, 255, 255, 0.25);
+    user-select: none;
+}
+
+.watch-layout .site-footer {
+    padding-top: 0.65rem;
+    padding-bottom: max(0.65rem, env(safe-area-inset-bottom));
+}
+
+/* ── Legal pages ── */
+.legal-main {
+    padding-top: calc(var(--nav-height) + 1rem);
+    padding-bottom: 2rem;
+}
+
+.legal-page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 0 clamp(1rem, 3vw, 2rem);
+    color: rgba(255, 255, 255, 0.88);
+    line-height: 1.65;
+}
+
+.legal-page h1 {
+    font-size: clamp(1.35rem, 4vw, 1.75rem);
+    margin: 0 0 0.5rem;
+    color: #fff;
+}
+
+.legal-updated {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+}
+
+.legal-page section {
+    margin-bottom: 1.35rem;
+}
+
+.legal-page h2 {
+    font-size: 1.05rem;
+    margin: 0 0 0.5rem;
+    color: #fff;
+}
+
+.legal-page ul {
+    padding-left: 1.25rem;
+    margin: 0.5rem 0;
+}
+
+.legal-page a {
+    color: var(--accent);
+}
+
+.contact-card {
+    margin: 1.25rem 0;
+    padding: 1rem 1.15rem;
+    border-radius: var(--radius);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.contact-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin: 0 0 0.35rem;
+}
+
+.contact-links {
+    margin-top: 1.5rem;
+}
+
+.contact-links p {
+    margin: 0.35rem 0;
+}
+
+/* ── AdSense slots (empty until units are pasted) ── */
+.ad-slot {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0.35rem clamp(0.5rem, 2.5vw, 1rem);
+    min-height: 0;
+    overflow: hidden;
+    text-align: center;
+}
+
+.ad-slot-watch-top {
+    margin-bottom: 0.35rem;
+}
+
+.ad-slot-watch-bottom {
+    margin-top: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.ad-slot-home-mid,
+.ad-slot-series-mid {
+    margin: 0.75rem auto 1rem;
+}
+
+@media (max-width: 768px) {
+    .site-footer-inner {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .ad-slot {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+
+    .ad-slot-watch-top,
+    .ad-slot-watch-bottom {
+        margin-top: 0.25rem;
+        margin-bottom: 0.25rem;
+    }
+}

@@ -61,6 +61,7 @@ def create_app(config_class=None):
         return get_user_by_id(user_id)
 
     from routes.auth import auth_bp
+    from routes.legal import legal_bp
     from modules.streaming.routes.public import streaming_bp
     from modules.streaming.routes.api import streaming_api_bp
     from modules.streaming.routes.admin import streaming_admin_bp
@@ -69,6 +70,7 @@ def create_app(config_class=None):
     from modules.db.routes import db_admin_bp
 
     app.register_blueprint(auth_bp)
+    app.register_blueprint(legal_bp)
     app.register_blueprint(streaming_bp)
     app.register_blueprint(streaming_api_bp)
     app.register_blueprint(streaming_admin_bp)
@@ -105,6 +107,7 @@ def create_app(config_class=None):
 
     @app.context_processor
     def inject_i18n():
+        from flask import current_app
         from utils.i18n import get_all_translations, get_locale, t
         from utils.media import (
             episode_thumbnail_url,
@@ -120,6 +123,7 @@ def create_app(config_class=None):
             "series_card_url": series_card_url,
             "series_hero_url": series_hero_url,
             "episode_thumbnail_url": episode_thumbnail_url,
+            "adsense_slots_enabled": current_app.config.get("ADSENSE_SLOTS_ENABLED", False),
         }
 
     from utils.i18n import t as translate_fn

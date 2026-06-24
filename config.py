@@ -111,6 +111,12 @@ class Config:
     VIDEO_HLS_INCLUDE_720P = os.environ.get(
         "VIDEO_HLS_INCLUDE_720P", "false"
     ).lower() in ("1", "true", "yes")
+    ADSENSE_SLOTS_ENABLED = os.environ.get("ADSENSE_SLOTS_ENABLED", "false").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    CONTACT_EMAIL = os.environ.get("CONTACT_EMAIL", "support@stream-premium.com")
     FFMPEG_PATH = os.environ.get("FFMPEG_PATH", "")
     STORAGE_PROVIDER = os.environ.get(
         "STORAGE_PROVIDER", "r2" if os.environ.get("RENDER") else "local"

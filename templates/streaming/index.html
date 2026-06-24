@@ -43,6 +43,10 @@
     </section>
     {% endif %}
 
+    {% with slot='home-mid' %}
+    {% include "partials/adsense_slot.html" %}
+    {% endwith %}
+
     <div class="streaming-rows">
         {{ content_row(t('continue_watching'), continue_watching, 'continue') }}
         {{ content_row(t('trending'), trending) }}

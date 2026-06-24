@@ -177,6 +177,13 @@ TRANSLATIONS = {
         "all": "Todos",
         "no_payments": "No hay pagos",
         "created": "Creado",
+        "privacy_policy": "Política de privacidad",
+        "terms_of_use": "Términos de uso",
+        "contact": "Contacto",
+        "contact_intro": "Para consultas sobre tu cuenta, pagos o privacidad, contáctanos:",
+        "contact_no_email": "Configura CONTACT_EMAIL en el servidor para mostrar el correo de contacto.",
+        "legal_last_updated": "Última actualización",
+        "ad_slot_label": "Publicidad",
     },
     "en": {
         "app_name": "StreamPremium",
@@ -356,6 +363,13 @@ TRANSLATIONS = {
         "all": "All",
         "no_payments": "No payments",
         "created": "Created",
+        "privacy_policy": "Privacy Policy",
+        "terms_of_use": "Terms of Use",
+        "contact": "Contact",
+        "contact_intro": "For account, billing, or privacy questions, reach us at:",
+        "contact_no_email": "Set CONTACT_EMAIL on the server to display the contact address.",
+        "legal_last_updated": "Last updated",
+        "ad_slot_label": "Advertisement",
     },
 }
 
