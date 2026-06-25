@@ -176,38 +176,48 @@ def _heights_for_source(source_height: int) -> list[int]:
 
 
 def _run_ffmpeg(cmd: list[str]) -> subprocess.CompletedProcess[str]:
-    """Run ffmpeg in a subprocess; always terminate the child process."""
+    """Run ffmpeg in a subprocess; avoid buffering huge stderr in RAM."""
     logger.info("FFmpeg command: %s", " ".join(cmd))
     proc: subprocess.Popen[str] | None = None
+    err_path: Path | None = None
     try:
-        proc = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-        stdout, stderr = proc.communicate()
-        if proc.returncode != 0:
-            logger.error("FFmpeg failed exit=%s", proc.returncode)
+        with tempfile.NamedTemporaryFile(
+            mode="w+",
+            prefix="ffmpeg-",
+            suffix=".log",
+            delete=False,
+            encoding="utf-8",
+            errors="replace",
+        ) as err_file:
+            err_path = Path(err_file.name)
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=err_file,
+                text=True,
+            )
+            proc.wait()
+            returncode = proc.returncode
+            stderr = err_path.read_text(encoding="utf-8", errors="replace")
+        if returncode != 0:
+            logger.error("FFmpeg failed exit=%s", returncode)
             logger.error("FFMPEG CMD: %s", " ".join(cmd))
-            logger.error("FFMPEG STDOUT:\n%s", stdout)
-            logger.error("FFMPEG STDERR:\n%s", stderr)
+            if stderr:
+                logger.error("FFMPEG STDERR:\n%s", stderr[-8000:])
             raise FFmpegError(
-                f"ffmpeg exited with code {proc.returncode}",
-                stdout=stdout or "",
+                f"ffmpeg exited with code {returncode}",
+                stdout="",
                 stderr=stderr or "",
                 cmd=cmd,
-                returncode=proc.returncode,
+                returncode=returncode,
             )
-        if stdout:
-            logger.debug("FFMPEG STDOUT:\n%s", stdout)
-        if stderr:
-            logger.debug("FFMPEG STDERR:\n%s", stderr)
-        return subprocess.CompletedProcess(cmd, proc.returncode, stdout, stderr)
+        return subprocess.CompletedProcess(cmd, returncode, "", stderr)
     finally:
         if proc is not None and proc.poll() is None:
             proc.kill()
             proc.wait(timeout=5)
+        if err_path and err_path.exists():
+            err_path.unlink(missing_ok=True)
 
 
 def _write_master_playlist(output_dir: Path, heights: list[int]) -> None:

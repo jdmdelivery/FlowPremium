@@ -56,6 +56,11 @@ def create_app(config_class=None):
         if is_render() and get_database_type(app.config.get("SQLALCHEMY_DATABASE_URI", "")) != "postgresql":
             raise RuntimeError("Render deploy must use PostgreSQL via DATABASE_URL.")
 
+        if not app.config.get("TESTING"):
+            from modules.streaming.services.memory_diagnostics import log_memory
+
+            log_memory("app_startup")
+
     @login_manager.user_loader
     def load_user(user_id):
         return get_user_by_id(user_id)

@@ -43,12 +43,9 @@ def is_ffmpeg_available() -> bool:
 
 
 def is_whisper_available() -> bool:
-    try:
-        import faster_whisper  # noqa: F401
+    import importlib.util
 
-        return True
-    except ImportError:
-        return False
+    return importlib.util.find_spec("faster_whisper") is not None
 
 
 def subtitles_enabled() -> bool:

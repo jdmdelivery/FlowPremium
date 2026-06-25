@@ -123,15 +123,18 @@ def rss_mb() -> int | None:
 
 
 def pipeline_memory_ok(*, min_free_mb: int | None = None) -> tuple[bool, str]:
-    """Refuse background FFmpeg/Whisper when the web dyno is nearly out of RAM."""
+    """Refuse background FFmpeg/Whisper when the dyno is nearly out of RAM."""
     from flask import current_app
 
-    if min_free_mb is None:
-        min_free_mb = int(current_app.config.get("MEDIA_PIPELINE_MIN_FREE_MB", 180))
-
     snap = memory_snapshot()
+    low_ram = is_low_ram_instance()
+
+    if min_free_mb is None:
+        default = 220 if low_ram else 180
+        min_free_mb = int(current_app.config.get("MEDIA_PIPELINE_MIN_FREE_MB", default))
+
     rss = snap.get("rss_mb")
-    max_rss = int(current_app.config.get("MEDIA_PIPELINE_MAX_RSS_MB", 280))
+    max_rss = int(current_app.config.get("MEDIA_PIPELINE_MAX_RSS_MB", 200 if low_ram else 280))
     if rss is not None and rss > max_rss:
         return False, f"rss_mb={rss} exceeds max={max_rss}"
 
@@ -140,5 +143,10 @@ def pipeline_memory_ok(*, min_free_mb: int | None = None) -> tuple[bool, str]:
         avail_mb = avail_kb // 1024
         if avail_mb < min_free_mb:
             return False, f"mem_available_mb={avail_mb} below min={min_free_mb}"
+
+    total_kb = snap.get("mem_total_kb")
+    if low_ram and total_kb is not None and total_kb < 900 * 1024:
+        if avail_kb is not None and avail_kb // 1024 < min_free_mb + 40:
+            return False, f"starter_mem_available_mb={avail_kb // 1024} too low"
 
     return True, "ok"

@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import gc
 import logging
+import os
 import shutil
+import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -21,6 +24,45 @@ logger = logging.getLogger(__name__)
 
 _ACTIVE: set[int] = set()
 _LOCK = threading.Lock()
+
+
+def _use_subprocess_worker() -> bool:
+    from flask import current_app
+
+    cfg = current_app.config.get("MEDIA_PIPELINE_USE_SUBPROCESS")
+    if cfg is not None:
+        return bool(cfg)
+    from utils.runtime_env import is_render
+
+    return is_render()
+
+
+def _spawn_pipeline_subprocess(
+    episode_id: int,
+    *,
+    run_hls: bool,
+    run_subtitles: bool,
+    force_subtitles: bool,
+) -> subprocess.Popen[bytes]:
+    cmd = [sys.executable, "-m", "modules.streaming.media_worker", str(episode_id)]
+    if run_hls:
+        cmd.append("--hls")
+    if run_subtitles:
+        cmd.append("--subtitles")
+    if force_subtitles:
+        cmd.append("--force-subtitles")
+    logger.info(
+        "Spawning media worker subprocess episode=%s cmd=%s",
+        episode_id,
+        " ".join(cmd),
+    )
+    return subprocess.Popen(
+        cmd,
+        stdout=subprocess.DEVNULL,
+        stderr=None,
+        start_new_session=True,
+        env=os.environ.copy(),
+    )
 
 
 def is_episode_pipeline_active(episode_id: int) -> bool:
@@ -177,8 +219,13 @@ def enqueue_media_pipeline(
 
     app = current_app._get_current_object()
     defer_s = int(current_app.config.get("MEDIA_PIPELINE_DEFER_SECONDS", 15))
+    use_subprocess = _use_subprocess_worker()
 
-    def _run() -> None:
+    def _finish() -> None:
+        with _LOCK:
+            _ACTIVE.discard(episode_id)
+
+    def _run_in_process() -> None:
         if defer_s > 0:
             time.sleep(defer_s)
         with app.app_context():
@@ -192,11 +239,56 @@ def enqueue_media_pipeline(
             except Exception:
                 logger.exception("Media pipeline failed episode=%s", episode_id)
             finally:
-                with _LOCK:
-                    _ACTIVE.discard(episode_id)
+                _finish()
 
+    def _run_subprocess_supervisor() -> None:
+        if defer_s > 0:
+            time.sleep(defer_s)
+        with app.app_context():
+            ok, reason = pipeline_memory_ok()
+            if not ok:
+                logger.warning(
+                    "Media worker not started episode=%s: %s",
+                    episode_id,
+                    reason,
+                )
+                run_media_pipeline(
+                    episode_id,
+                    run_hls=run_hls,
+                    run_subtitles=run_subtitles,
+                    force_subtitles=force_subtitles,
+                )
+                _finish()
+                return
+            log_memory("before_media_subprocess", episode_id=episode_id)
+        proc: subprocess.Popen[bytes] | None = None
+        try:
+            proc = _spawn_pipeline_subprocess(
+                episode_id,
+                run_hls=run_hls,
+                run_subtitles=run_subtitles,
+                force_subtitles=force_subtitles,
+            )
+            exit_code = proc.wait()
+            if exit_code != 0:
+                logger.error(
+                    "Media worker exited episode=%s code=%s",
+                    episode_id,
+                    exit_code,
+                )
+        except Exception:
+            logger.exception("Media worker subprocess failed episode=%s", episode_id)
+            if proc is not None and proc.poll() is None:
+                proc.kill()
+                proc.wait(timeout=10)
+        finally:
+            with app.app_context():
+                log_memory("after_media_subprocess", episode_id=episode_id)
+            _finish()
+
+    target = _run_subprocess_supervisor if use_subprocess else _run_in_process
     threading.Thread(
-        target=_run,
+        target=target,
         name=f"media-pipe-{episode_id}",
         daemon=True,
     ).start()
