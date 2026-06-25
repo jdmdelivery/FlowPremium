@@ -98,7 +98,7 @@ def log_memory(stage: str, *, episode_id: int | None = None, extra: str = "") ->
 
 
 def is_low_ram_instance(threshold_mb: int = 768) -> bool:
-    """True on Render free/starter tiers or when VIDEO_HLS_LOW_RAM is set."""
+    """True on Render Starter (~512MB) or when VIDEO_HLS_LOW_RAM is set."""
     from flask import current_app
 
     cfg = current_app.config.get("VIDEO_HLS_LOW_RAM")
@@ -106,12 +106,39 @@ def is_low_ram_instance(threshold_mb: int = 768) -> bool:
         return bool(cfg)
 
     meminfo = _read_linux_meminfo()
+    total_kb = meminfo.get("MemTotal")
+    if total_kb is not None and total_kb < 900 * 1024:
+        return True
+
     available_kb = meminfo.get("MemAvailable") or meminfo.get("MemFree")
     if available_kb is not None:
         return available_kb < threshold_mb * 1024
 
-    total_kb = meminfo.get("MemTotal")
-    if total_kb is not None:
-        return total_kb < 1024 * 1024
-
     return True
+
+
+def rss_mb() -> int | None:
+    snap = memory_snapshot()
+    return snap.get("rss_mb")
+
+
+def pipeline_memory_ok(*, min_free_mb: int | None = None) -> tuple[bool, str]:
+    """Refuse background FFmpeg/Whisper when the web dyno is nearly out of RAM."""
+    from flask import current_app
+
+    if min_free_mb is None:
+        min_free_mb = int(current_app.config.get("MEDIA_PIPELINE_MIN_FREE_MB", 180))
+
+    snap = memory_snapshot()
+    rss = snap.get("rss_mb")
+    max_rss = int(current_app.config.get("MEDIA_PIPELINE_MAX_RSS_MB", 280))
+    if rss is not None and rss > max_rss:
+        return False, f"rss_mb={rss} exceeds max={max_rss}"
+
+    avail_kb = snap.get("mem_available_kb")
+    if avail_kb is not None:
+        avail_mb = avail_kb // 1024
+        if avail_mb < min_free_mb:
+            return False, f"mem_available_mb={avail_mb} below min={min_free_mb}"
+
+    return True, "ok"

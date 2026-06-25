@@ -117,6 +117,11 @@ class Config:
         "yes",
     )
     CONTACT_EMAIL = os.environ.get("CONTACT_EMAIL", "support@stream-premium.com")
+    MEDIA_PIPELINE_DEFER_SECONDS = int(os.environ.get("MEDIA_PIPELINE_DEFER_SECONDS", "15"))
+    MEDIA_PIPELINE_MIN_FREE_MB = int(os.environ.get("MEDIA_PIPELINE_MIN_FREE_MB", "180"))
+    MEDIA_PIPELINE_MAX_RSS_MB = int(os.environ.get("MEDIA_PIPELINE_MAX_RSS_MB", "280"))
+    WHISPER_MODEL_SIZE_LOW_RAM = os.environ.get("WHISPER_MODEL_SIZE_LOW_RAM", "tiny")
+    GUNICORN_THREADS = int(os.environ.get("GUNICORN_THREADS", "2"))
     FFMPEG_PATH = os.environ.get("FFMPEG_PATH", "")
     STORAGE_PROVIDER = os.environ.get(
         "STORAGE_PROVIDER", "r2" if os.environ.get("RENDER") else "local"

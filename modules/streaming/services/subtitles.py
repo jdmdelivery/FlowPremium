@@ -136,7 +136,12 @@ def _extract_audio_wav(video_path: Path, wav_path: Path) -> None:
 def _transcribe_audio(wav_path: Path, language: str, *, episode_id: int | None = None):
     from faster_whisper import WhisperModel
 
-    model_size = current_app.config.get("WHISPER_MODEL_SIZE", "base")
+    from modules.streaming.services.memory_diagnostics import is_low_ram_instance
+
+    if is_low_ram_instance():
+        model_size = current_app.config.get("WHISPER_MODEL_SIZE_LOW_RAM", "tiny")
+    else:
+        model_size = current_app.config.get("WHISPER_MODEL_SIZE", "base")
     device = current_app.config.get("WHISPER_DEVICE", "cpu")
     compute_type = current_app.config.get("WHISPER_COMPUTE_TYPE", "int8")
 
@@ -283,6 +288,10 @@ def generate_subtitles_for_episode(
         log_memory("before_ffmpeg_audio_extract", episode_id=episode_id)
         _extract_audio_wav(video_path, wav_path)
         log_memory("after_ffmpeg_audio_extract", episode_id=episode_id)
+
+        if not is_local_media_url(episode.video_url_r2) and video_path.exists():
+            video_path.unlink(missing_ok=True)
+            gc.collect()
 
         segments = _transcribe_audio(wav_path, source_lang, episode_id=episode_id)
         if wav_path.exists():

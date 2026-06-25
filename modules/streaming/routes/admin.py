@@ -199,23 +199,7 @@ def episode_form(episode_id=None):
         db.session.commit()
 
         if new_video_uploaded and episode.video_url_r2:
-            from modules.streaming.services.audio_probe_episode import probe_episode_audio
             from modules.streaming.services.media_pipeline import enqueue_media_pipeline
-
-            count = probe_episode_audio(episode)
-            db.session.commit()
-            if count > 1:
-                flash(
-                    f"Detectadas {count} pistas de audio en el MP4 (selector en reproductor).",
-                    "info",
-                )
-            elif count == 1:
-                flash("El MP4 tiene 1 pista de audio.", "info")
-            else:
-                flash(
-                    "No se detectaron pistas de audio en el MP4 (verifica el archivo).",
-                    "warning",
-                )
 
             if enqueue_media_pipeline(episode.id, run_hls=True, run_subtitles=True):
                 flash(

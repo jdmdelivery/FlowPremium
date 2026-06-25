@@ -15,6 +15,18 @@ from utils.audio_probe import probe_audio_streams
 logger = logging.getLogger(__name__)
 
 
+def probe_episode_audio_from_path(episode: Episode, video_path: Path) -> int:
+    """Probe embedded audio using an already-local file (no R2 download)."""
+    try:
+        tracks = probe_audio_streams(video_path)
+        save_probe_result(episode, tracks)
+        return len(tracks)
+    except Exception:
+        logger.exception("Audio probe failed for episode %s", episode.id)
+        save_probe_result(episode, [])
+        return 0
+
+
 def probe_episode_audio(episode: Episode) -> int:
     """Inspect episode video file; store embedded track metadata. Returns track count."""
     key = episode.video_url_r2
@@ -26,14 +38,11 @@ def probe_episode_audio(episode: Episode) -> int:
     try:
         if is_local_media_url(key):
             video_path = resolve_storage_path(key)
-        else:
-            from modules.storage.storage_r2 import download_object_to_path
+            return probe_episode_audio_from_path(episode, video_path)
+        from modules.storage.storage_r2 import download_object_to_path
 
-            video_path = download_object_to_path(key, tmp_dir / "probe.mp4")
-
-        tracks = probe_audio_streams(video_path)
-        save_probe_result(episode, tracks)
-        return len(tracks)
+        video_path = download_object_to_path(key, tmp_dir / "probe.mp4")
+        return probe_episode_audio_from_path(episode, video_path)
     except Exception:
         logger.exception("Audio probe failed for episode %s", episode.id)
         save_probe_result(episode, [])

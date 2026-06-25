@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
+import gc
 import logging
 import shutil
 import tempfile
 import threading
+import time
 from pathlib import Path
 
 from flask import current_app
 
 from extensions import db
 from modules.streaming.models import Episode
-from modules.streaming.services.memory_diagnostics import log_memory
+from modules.streaming.services.memory_diagnostics import log_memory, pipeline_memory_ok
 from modules.streaming.upload import is_local_media_url, resolve_storage_path
 
 logger = logging.getLogger(__name__)
@@ -35,7 +37,10 @@ def _materialize_source(episode: Episode, tmp_dir: Path) -> Path:
     from modules.storage.storage_r2 import download_object_to_path
 
     dest = tmp_dir / f"episode_{episode.id}.mp4"
-    return download_object_to_path(key, dest)
+    log_memory("before_r2_download", episode_id=episode.id, extra=f"key={key}")
+    path = download_object_to_path(key, dest)
+    log_memory("after_r2_download", episode_id=episode.id)
+    return path
 
 
 def _should_run_subtitles(episode: Episode, *, force: bool) -> bool:
@@ -64,9 +69,26 @@ def run_media_pipeline(
     run_subtitles: bool = True,
     force_subtitles: bool = False,
 ) -> None:
-    """Run HLS then subtitles sequentially in the current app context."""
+    """Run probe → HLS → subtitles sequentially; one R2 download per run."""
+    from modules.streaming.services.audio_probe_episode import probe_episode_audio_from_path
     from modules.streaming.services.subtitles import generate_subtitles_for_episode
     from modules.streaming.services.video_processing import process_episode_hls
+
+    ok, reason = pipeline_memory_ok()
+    if not ok:
+        logger.warning("Media pipeline aborted episode=%s: %s", episode_id, reason)
+        episode = db.session.get(Episode, episode_id)
+        if episode:
+            if run_hls and episode.processing_status in ("pending", "processing"):
+                episode.processing_status = "ready"
+                episode.processing_error = (
+                    "Procesamiento pospuesto: memoria insuficiente en el servidor. "
+                    "Reintenta más tarde o desactiva HLS en instancias de 512MB."
+                )
+            if run_subtitles and episode.subtitle_status in ("pending", "processing"):
+                episode.subtitle_status = "skipped"
+            db.session.commit()
+        return
 
     episode = db.session.get(Episode, episode_id)
     if not episode or not episode.video_url_r2:
@@ -83,10 +105,16 @@ def run_media_pipeline(
         elif source_path.parent.name.startswith("hls-src-"):
             source_parent = source_path.parent
 
+        log_memory("before_audio_probe", episode_id=episode_id)
+        probe_episode_audio_from_path(episode, source_path)
+        db.session.commit()
+        log_memory("after_audio_probe", episode_id=episode_id)
+
         if run_hls:
             log_memory("before_ffmpeg_hls", episode_id=episode_id)
             process_episode_hls(episode_id, source_path=source_path)
             log_memory("after_ffmpeg_hls", episode_id=episode_id)
+            gc.collect()
 
         if run_subtitles:
             episode = db.session.get(Episode, episode_id)
@@ -94,10 +122,13 @@ def run_media_pipeline(
                 log_memory("before_whisper", episode_id=episode_id)
                 generate_subtitles_for_episode(episode_id, source_path=source_path)
                 log_memory("after_whisper", episode_id=episode_id)
+                gc.collect()
     finally:
         shutil.rmtree(shared_tmp, ignore_errors=True)
         if source_parent and source_parent != shared_tmp:
             shutil.rmtree(source_parent, ignore_errors=True)
+        gc.collect()
+        log_memory("pipeline_done", episode_id=episode_id)
 
 
 def enqueue_media_pipeline(
@@ -145,8 +176,11 @@ def enqueue_media_pipeline(
     db.session.commit()
 
     app = current_app._get_current_object()
+    defer_s = int(current_app.config.get("MEDIA_PIPELINE_DEFER_SECONDS", 15))
 
     def _run() -> None:
+        if defer_s > 0:
+            time.sleep(defer_s)
         with app.app_context():
             try:
                 run_media_pipeline(

@@ -392,6 +392,10 @@ def process_episode_hls(episode_id: int, *, source_path: Path | None = None) -> 
         episode.processing_error = None
         db.session.commit()
         logger.info("HLS ready episode=%s master=%s qualities=%s", episode_id, master_key, qualities)
+        import gc
+
+        gc.collect()
+        log_memory("after_hls_commit", episode_id=episode_id)
     except FFmpegError as exc:
         error_detail = _format_ffmpeg_error(exc)
         logger.error("HLS FFmpeg error episode=%s\n%s", episode_id, error_detail)

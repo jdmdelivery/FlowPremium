@@ -1,34 +1,76 @@
-from sqlalchemy import func
+from sqlalchemy import case, func
 
 from extensions import db
 from modules.streaming.models import Episode, EpisodePurchase, Series, Season, WatchProgress
 from modules.streaming.services.access import can_watch
 
 
-def _series_badge(episodes: list) -> str:
-    if not episodes:
+def _series_badge(free_count: int, total: int) -> str:
+    if total <= 0:
         return "free"
-    free_count = sum(1 for e in episodes if e.is_free)
-    if free_count == len(episodes):
+    if free_count == total:
         return "free"
     if free_count == 0:
         return "premium"
     return "mixed"
 
 
-def enrich_series(series: Series) -> dict:
-    episodes = (
-        Episode.query.filter_by(series_id=series.id, is_active=True)
-        .order_by(Episode.id)
+def _episode_stats_by_series() -> dict[int, dict]:
+    """One query: episode counts per series (avoids N+1 on home)."""
+    rows = (
+        db.session.query(
+            Episode.series_id,
+            func.count(Episode.id).label("total"),
+            func.sum(case((Episode.is_free.is_(True), 1), else_=0)).label("free_count"),
+            func.min(Episode.id).label("first_ep_id"),
+        )
+        .filter(Episode.is_active.is_(True))
+        .group_by(Episode.series_id)
         .all()
     )
-    first_thumb = next((e.thumbnail_url for e in episodes if e.thumbnail_url), None)
+    out: dict[int, dict] = {}
+    for row in rows:
+        out[row.series_id] = {
+            "total": int(row.total or 0),
+            "free_count": int(row.free_count or 0),
+            "first_ep_id": row.first_ep_id,
+        }
+    return out
+
+
+def _first_thumbnails_by_series() -> dict[int, str]:
+    """First non-null thumbnail per series in one query."""
+    subq = (
+        db.session.query(
+            Episode.series_id,
+            func.min(Episode.id).label("min_id"),
+        )
+        .filter(Episode.is_active.is_(True), Episode.thumbnail_url.isnot(None))
+        .group_by(Episode.series_id)
+        .subquery()
+    )
+    rows = (
+        db.session.query(Episode.series_id, Episode.thumbnail_url)
+        .join(
+            subq,
+            (Episode.series_id == subq.c.series_id) & (Episode.id == subq.c.min_id),
+        )
+        .all()
+    )
+    return {sid: thumb for sid, thumb in rows if thumb}
+
+
+def enrich_series(series: Series, stats: dict, first_thumbs: dict) -> dict:
+    st = stats.get(series.id, {})
+    total = st.get("total", 0)
+    free_count = st.get("free_count", 0)
+    first_thumb = first_thumbs.get(series.id)
     card_key = series.thumbnail_url or series.hero_image_url or series.cover_image or first_thumb
     hero_key = series.hero_image_url or series.thumbnail_url or series.cover_image or first_thumb
     return {
         "series": series,
-        "episode_count": len(episodes),
-        "badge": _series_badge(episodes),
+        "episode_count": total,
+        "badge": _series_badge(free_count, total),
         "card_image_key": card_key,
         "hero_image_key": hero_key,
     }
@@ -72,7 +114,9 @@ def get_next_episode(episode: Episode) -> Episode | None:
 
 def get_home_sections(user) -> dict:
     all_series = Series.query.filter_by(is_active=True).order_by(Series.created_at.desc()).all()
-    cards = [enrich_series(s) for s in all_series]
+    stats = _episode_stats_by_series()
+    first_thumbs = _first_thumbnails_by_series()
+    cards = [enrich_series(s, stats, first_thumbs) for s in all_series]
 
     featured = cards[0] if cards else None
     recently_added = cards[:12]
@@ -89,12 +133,10 @@ def get_home_sections(user) -> dict:
         reverse=True,
     )[:12]
 
-    premium_scores = {}
-    for card in cards:
-        sid = card["series"].id
-        premium_scores[sid] = Episode.query.filter_by(
-            series_id=sid, is_active=True, is_free=False
-        ).count()
+    premium_scores = {
+        sid: int(st.get("total", 0)) - int(st.get("free_count", 0))
+        for sid, st in stats.items()
+    }
     top_premium = sorted(
         cards,
         key=lambda c: premium_scores.get(c["series"].id, 0),
@@ -109,8 +151,15 @@ def get_home_sections(user) -> dict:
             .limit(12)
             .all()
         )
+        ep_ids = [p.episode_id for p in progresses]
+        episodes = {}
+        if ep_ids:
+            for ep in Episode.query.filter(
+                Episode.id.in_(ep_ids), Episode.is_active.is_(True)
+            ).all():
+                episodes[ep.id] = ep
         for prog in progresses:
-            ep = Episode.query.filter_by(id=prog.episode_id, is_active=True).first()
+            ep = episodes.get(prog.episode_id)
             if ep and can_watch(user, ep):
                 pct = 0
                 if ep.duration_seconds and ep.duration_seconds > 0:

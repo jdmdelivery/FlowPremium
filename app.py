@@ -84,7 +84,23 @@ def create_app(config_class=None):
 
     @app.route("/health")
     def health():
-        return {"status": "ok"}
+        from modules.streaming.services.memory_diagnostics import memory_snapshot
+
+        payload = {"status": "ok"}
+        if request.args.get("mem") == "1":
+            snap = memory_snapshot()
+            payload["memory"] = {
+                "rss_mb": snap.get("rss_mb"),
+                "mem_available_mb": (
+                    int(snap["mem_available_kb"] / 1024)
+                    if snap.get("mem_available_kb")
+                    else None
+                ),
+                "mem_total_mb": (
+                    int(snap["mem_total_kb"] / 1024) if snap.get("mem_total_kb") else None
+                ),
+            }
+        return payload
 
     @app.route("/set-locale/<locale>")
     def set_locale(locale):

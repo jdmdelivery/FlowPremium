@@ -35,6 +35,7 @@ def app():
         PAYPAL_CLIENT_SECRET = ""
         CASHAPP_TAG = "$TestTag"
         SUBTITLES_ENABLED = False
+        MEDIA_PIPELINE_DEFER_SECONDS = 0
         STORAGE_PROVIDER = "local"
         R2_ENDPOINT = ""
         R2_ACCESS_KEY_ID = ""

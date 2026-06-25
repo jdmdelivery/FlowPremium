@@ -304,6 +304,9 @@ def _stream_r2_file(key: str, episode_id: int) -> Response:
 
 
 def stream_episode_video(user, episode: Episode) -> Response:
+    from modules.streaming.services.memory_diagnostics import log_memory
+
+    log_memory("video_stream_start", episode_id=episode.id)
     if not can_watch(user, episode):
         logger.warning(
             "[video] forbidden episode=%s user=%s client=%s",
