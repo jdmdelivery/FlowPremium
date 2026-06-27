@@ -23,7 +23,23 @@ from modules.streaming.upload import is_local_media_url, resolve_storage_path
 logger = logging.getLogger(__name__)
 
 _ACTIVE: set[int] = set()
+_ACTIVE_SINCE: dict[int, float] = {}
 _LOCK = threading.Lock()
+_ACTIVE_MAX_AGE_S = 7200
+
+
+def _purge_stale_active() -> None:
+    """Prevent _ACTIVE from blocking re-queues if a worker thread died."""
+    now = time.monotonic()
+    with _LOCK:
+        stale = [
+            episode_id
+            for episode_id, started in _ACTIVE_SINCE.items()
+            if now - started > _ACTIVE_MAX_AGE_S
+        ]
+        for episode_id in stale:
+            _ACTIVE.discard(episode_id)
+            _ACTIVE_SINCE.pop(episode_id, None)
 
 
 def _use_subprocess_worker() -> bool:
@@ -190,6 +206,9 @@ def enqueue_media_pipeline(
             logger.info("Media pipeline already active episode=%s", episode_id)
             return False
         _ACTIVE.add(episode_id)
+        _ACTIVE_SINCE[episode_id] = time.monotonic()
+
+    _purge_stale_active()
 
     if run_hls:
         from modules.streaming.services.video_processing import hls_processing_enabled
@@ -209,6 +228,7 @@ def enqueue_media_pipeline(
     if not run_hls and not run_subtitles:
         with _LOCK:
             _ACTIVE.discard(episode_id)
+            _ACTIVE_SINCE.pop(episode_id, None)
         return False
 
     if run_hls:
@@ -224,6 +244,7 @@ def enqueue_media_pipeline(
     def _finish() -> None:
         with _LOCK:
             _ACTIVE.discard(episode_id)
+            _ACTIVE_SINCE.pop(episode_id, None)
 
     def _run_in_process() -> None:
         if defer_s > 0:

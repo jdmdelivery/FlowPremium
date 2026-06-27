@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from flask_login import current_user, login_required
 
 from modules.streaming.models import Episode, Series
@@ -34,10 +34,15 @@ def list_series():
 @streaming_api_bp.route("/episodes")
 def list_episodes():
     series_id = request.args.get("series_id", type=int)
+    limit = min(
+        request.args.get("limit", type=int)
+        or int(current_app.config.get("API_LIST_LIMIT", 500)),
+        1000,
+    )
     q = Episode.query.filter_by(is_active=True)
     if series_id:
         q = q.filter_by(series_id=series_id)
-    episodes = q.order_by(Episode.id).all()
+    episodes = q.order_by(Episode.id).limit(limit).all()
     return jsonify([
         {
             "id": ep.id,

@@ -1,4 +1,4 @@
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import Blueprint, flash, redirect, render_template, request, url_for, current_app
 
 from extensions import db
 from models.user import User
@@ -104,7 +104,10 @@ def seasons_manage(series_id):
 @streaming_admin_bp.route("/episodes")
 @admin_required
 def episodes_list():
-    episodes = Episode.query.order_by(Episode.created_at.desc()).all()
+    limit = int(current_app.config.get("ADMIN_LIST_LIMIT", 500))
+    episodes = (
+        Episode.query.order_by(Episode.created_at.desc()).limit(limit).all()
+    )
     return render_template("streaming/admin/episodes_list.html", episodes=episodes)
 
 
@@ -260,10 +263,11 @@ def payments_manage():
             admin_grant_subscription(user_id, days)
             flash("Suscripción activada / Subscription activated", "success")
 
+    limit = int(current_app.config.get("ADMIN_LIST_LIMIT", 500))
     payments = Payment.query.order_by(Payment.created_at.desc()).limit(100).all()
     purchases = EpisodePurchase.query.order_by(EpisodePurchase.purchased_at.desc()).limit(100).all()
-    users = User.query.order_by(User.username).all()
-    episodes = Episode.query.order_by(Episode.title).all()
+    users = User.query.order_by(User.username).limit(limit).all()
+    episodes = Episode.query.order_by(Episode.title).limit(limit).all()
     return render_template(
         "streaming/admin/payments.html",
         payments=payments,

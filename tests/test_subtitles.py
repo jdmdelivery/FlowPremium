@@ -254,8 +254,8 @@ def test_generate_subtitles_auto_translates(app, sample_content, monkeypatch):
     ), patch(
         "modules.streaming.services.subtitles._extract_audio_wav",
     ), patch(
-        "modules.streaming.services.subtitles._transcribe_audio",
-        return_value=[__import__("types").SimpleNamespace(start=0.0, end=1.0, text="Hola")],
+        "modules.streaming.services.subtitles._transcribe_to_vtt",
+        return_value="WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nHola\n",
     ), patch(
         "modules.streaming.services.subtitles.save_subtitle_vtt",
         side_effect=fake_save,

@@ -2,7 +2,6 @@ import uuid
 from pathlib import Path
 
 from flask import current_app
-from PIL import Image
 from werkzeug.datastructures import FileStorage
 
 from utils.runtime_env import must_use_r2_storage
@@ -331,13 +330,9 @@ def save_image(
     name = f"{uuid.uuid4().hex}.{ext}"
     dest = folder / name
 
-    img = Image.open(file.stream)
-    img.verify()
-    file.stream.seek(0)
-    img = Image.open(file.stream)
-    if img.mode in ("RGBA", "P"):
-        img = img.convert("RGB")
-    img.save(dest, optimize=True, quality=85)
+    from utils.image_io import save_image_to_path
+
+    save_image_to_path(file.stream, dest)
     return _relative_path(dest)
 
 

@@ -239,14 +239,23 @@ def fail_payment(payment: Payment, reason: str = "") -> Payment:
 
 
 def payment_totals() -> dict[str, float]:
+    from sqlalchemy import func
+
     now = datetime.utcnow()
     start_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
     start_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
-    paid = Payment.query.filter_by(status="paid").all()
-    day_total = sum(p.amount for p in paid if p.paid_at and p.paid_at >= start_day)
-    month_total = sum(p.amount for p in paid if p.paid_at and p.paid_at >= start_month)
-    return {"day": round(day_total, 2), "month": round(month_total, 2)}
+    day_total = (
+        db.session.query(func.coalesce(func.sum(Payment.amount), 0.0))
+        .filter(Payment.status == "paid", Payment.paid_at >= start_day)
+        .scalar()
+    )
+    month_total = (
+        db.session.query(func.coalesce(func.sum(Payment.amount), 0.0))
+        .filter(Payment.status == "paid", Payment.paid_at >= start_month)
+        .scalar()
+    )
+    return {"day": round(float(day_total or 0), 2), "month": round(float(month_total or 0), 2)}
 
 
 def create_episode_payment(user, episode, method: str = "paypal") -> Payment:

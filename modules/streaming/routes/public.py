@@ -92,6 +92,7 @@ def my_purchases():
     purchases = (
         EpisodePurchase.query.filter_by(user_id=current_user.id)
         .order_by(EpisodePurchase.purchased_at.desc())
+        .limit(200)
         .all()
     )
     sub = (

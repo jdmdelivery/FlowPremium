@@ -83,6 +83,10 @@ def create_app(config_class=None):
     app.register_blueprint(storage_admin_bp)
     app.register_blueprint(db_admin_bp)
 
+    from utils.request_memory import init_request_memory_hooks
+
+    init_request_memory_hooks(app)
+
     @app.route("/")
     def home():
         return redirect(url_for("streaming.index"))

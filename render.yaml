@@ -8,7 +8,7 @@ services:
     plan: free
     buildCommand: pip install --upgrade pip && pip install -r requirements.txt
     # aptfile installs ffmpeg for subtitle extraction
-    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 1 --worker-class gthread --timeout 600 --graceful-timeout 120 --max-requests 500 --max-requests-jitter 50 app:app
+    startCommand: gunicorn -c gunicorn.conf.py app:app
     releaseCommand: flask init-db
     healthCheckPath: /health
     envVars:
@@ -16,6 +16,12 @@ services:
         value: production
       - key: FLASK_APP
         value: app.py
+      - key: WEB_CONCURRENCY
+        value: "1"
+      - key: GUNICORN_THREADS
+        value: "2"
+      - key: GUNICORN_TIMEOUT
+        value: "120"
       - key: PYTHON_VERSION
         value: 3.11.9
       - key: SEED_DEFAULT_USERS

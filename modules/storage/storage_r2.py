@@ -53,17 +53,28 @@ def is_r2_configured() -> bool:
 
 
 def _get_client():
+    """Reuse one boto3 client per Flask app (bounded cache, not a growing leak)."""
+    from flask import g, has_app_context
+
+    if has_app_context():
+        cached = getattr(g, "_r2_client", None)
+        if cached is not None:
+            return cached
+
     import boto3
     from botocore.config import Config
 
-    return boto3.client(
+    client = boto3.client(
         "s3",
         endpoint_url=current_app.config["R2_ENDPOINT"],
         aws_access_key_id=current_app.config["R2_ACCESS_KEY_ID"],
         aws_secret_access_key=current_app.config["R2_SECRET_ACCESS_KEY"],
         region_name="auto",
-        config=Config(signature_version="s3v4"),
+        config=Config(signature_version="s3v4", max_pool_connections=4),
     )
+    if has_app_context():
+        g._r2_client = client
+    return client
 
 
 def _bucket() -> str:
@@ -259,7 +270,7 @@ def upload_thumbnail(file: FileStorage, series_id: int | None = None) -> str:
         raise ValueError(
             "Cloudflare R2 no está disponible. Revisa la configuración de almacenamiento."
         )
-    from PIL import Image
+    from utils.image_io import image_to_bytesio
 
     ext = _ext(file.filename)
     if ext == "jpeg":
@@ -267,17 +278,7 @@ def upload_thumbnail(file: FileStorage, series_id: int | None = None) -> str:
     if ext not in current_app.config["ALLOWED_IMAGE_EXTENSIONS"]:
         raise ValueError("Invalid image format")
 
-    img = Image.open(file.stream)
-    img.verify()
-    file.stream.seek(0)
-    img = Image.open(file.stream)
-    if img.mode in ("RGBA", "P"):
-        img = img.convert("RGB")
-    buf = io.BytesIO()
-    save_ext = "JPEG" if ext in ("jpg", "jpeg") else ext.upper()
-    img.save(buf, format=save_ext, optimize=True, quality=85)
-    buf.seek(0)
-
+    buf = image_to_bytesio(file.stream, ext=ext)
     folder = f"covers/{series_id}" if series_id else "covers"
     key = f"{folder}/{uuid.uuid4().hex}.{'jpg' if ext in ('jpg', 'jpeg') else ext}"
     content_type = IMAGE_CONTENT_TYPES.get(ext, "image/jpeg")
@@ -290,7 +291,7 @@ def upload_payment_screenshot(file: FileStorage, payment_id: int | None = None) 
         raise ValueError(
             "Cloudflare R2 no está disponible. Revisa la configuración de almacenamiento."
         )
-    from PIL import Image
+    from utils.image_io import image_to_bytesio
 
     ext = _ext(file.filename)
     if ext == "jpeg":
@@ -305,16 +306,7 @@ def upload_payment_screenshot(file: FileStorage, payment_id: int | None = None) 
     if size > max_size:
         raise ValueError("Screenshot too large. Maximum size is 5 MB.")
 
-    img = Image.open(file.stream)
-    img.verify()
-    file.stream.seek(0)
-    img = Image.open(file.stream)
-    if img.mode in ("RGBA", "P"):
-        img = img.convert("RGB")
-    buf = io.BytesIO()
-    save_ext = "JPEG" if ext in ("jpg", "jpeg") else ext.upper()
-    img.save(buf, format=save_ext, optimize=True, quality=85)
-    buf.seek(0)
+    buf = image_to_bytesio(file.stream, ext=ext)
 
     folder = f"payments/{payment_id}" if payment_id else "payments"
     key = f"{folder}/{uuid.uuid4().hex}.{'jpg' if ext in ('jpg', 'jpeg') else ext}"
@@ -330,7 +322,7 @@ def upload_series_image(
         raise ValueError(
             "Cloudflare R2 no está disponible. Revisa la configuración de almacenamiento."
         )
-    from PIL import Image
+    from utils.image_io import image_to_bytesio
 
     ext = _ext(file.filename)
     if ext == "jpeg":
@@ -338,16 +330,7 @@ def upload_series_image(
     if ext not in current_app.config["ALLOWED_IMAGE_EXTENSIONS"]:
         raise ValueError("Invalid image format")
 
-    img = Image.open(file.stream)
-    img.verify()
-    file.stream.seek(0)
-    img = Image.open(file.stream)
-    if img.mode in ("RGBA", "P"):
-        img = img.convert("RGB")
-    buf = io.BytesIO()
-    save_ext = "JPEG" if ext in ("jpg", "jpeg") else ext.upper()
-    img.save(buf, format=save_ext, optimize=True, quality=85)
-    buf.seek(0)
+    buf = image_to_bytesio(file.stream, ext=ext)
 
     folder = f"series/{series_id}/{kind}" if series_id else f"series/{kind}"
     key = f"{folder}/{uuid.uuid4().hex}.{'jpg' if ext in ('jpg', 'jpeg') else ext}"

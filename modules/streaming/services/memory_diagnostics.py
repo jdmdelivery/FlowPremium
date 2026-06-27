@@ -8,6 +8,11 @@ import sys
 
 logger = logging.getLogger(__name__)
 
+try:
+    import psutil  # type: ignore
+except ImportError:  # pragma: no cover
+    psutil = None
+
 
 def _read_linux_meminfo() -> dict[str, int]:
     data: dict[str, int] = {}
@@ -26,12 +31,11 @@ def _read_linux_meminfo() -> dict[str, int]:
 
 
 def _rss_bytes() -> int | None:
-    try:
-        import psutil  # type: ignore
-
-        return int(psutil.Process(os.getpid()).memory_info().rss)
-    except Exception:
-        pass
+    if psutil is not None:
+        try:
+            return int(psutil.Process(os.getpid()).memory_info().rss)
+        except Exception:
+            pass
     try:
         with open("/proc/self/status", encoding="utf-8") as fh:
             for line in fh:

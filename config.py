@@ -129,7 +129,20 @@ class Config:
         "MEDIA_PIPELINE_USE_SUBPROCESS", "true" if _on_render else "false"
     ).lower() in ("1", "true", "yes")
     WHISPER_MODEL_SIZE_LOW_RAM = os.environ.get("WHISPER_MODEL_SIZE_LOW_RAM", "tiny")
-    GUNICORN_THREADS = int(os.environ.get("GUNICORN_THREADS", "1" if _on_render else "2"))
+    WEB_CONCURRENCY = int(os.environ.get("WEB_CONCURRENCY", "1"))
+    GUNICORN_THREADS = int(os.environ.get("GUNICORN_THREADS", "2" if _on_render else "2"))
+    GUNICORN_TIMEOUT = int(os.environ.get("GUNICORN_TIMEOUT", "120"))
+    ADMIN_LIST_LIMIT = int(os.environ.get("ADMIN_LIST_LIMIT", "500"))
+    API_LIST_LIMIT = int(os.environ.get("API_LIST_LIMIT", "500"))
+    MEMORY_BUDGET_MB = int(os.environ.get("MEMORY_BUDGET_MB", "350"))
+    MEMORY_LOG_REQUESTS = os.environ.get(
+        "MEMORY_LOG_REQUESTS", "true" if _on_render else "false"
+    ).lower() in ("1", "true", "yes")
+    MEMORY_GC_AFTER_REQUEST = os.environ.get("MEMORY_GC_AFTER_REQUEST", "false").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
     FFMPEG_PATH = os.environ.get("FFMPEG_PATH", "")
     STORAGE_PROVIDER = os.environ.get(
         "STORAGE_PROVIDER", "r2" if os.environ.get("RENDER") else "local"
@@ -169,6 +182,9 @@ class ProductionConfig(Config):
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
     PREFERRED_URL_SCHEME = "https"
+    JSON_SORT_KEYS = False
+    JSONIFY_PRETTYPRINT_REGULAR = False
+    MEMORY_LOG_REQUESTS = True
 
 
 def get_config_class():

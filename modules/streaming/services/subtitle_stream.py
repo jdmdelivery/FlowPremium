@@ -2,7 +2,7 @@
 
 import logging
 
-from flask import Response, request
+from flask import Response, request, send_file
 
 from modules.streaming.models import Episode
 from modules.streaming.services.access import can_watch
@@ -61,8 +61,17 @@ def stream_episode_subtitles(user, episode: Episode) -> Response:
         if request.method == "HEAD":
             size = path.stat().st_size
             return Response(status=200, headers=_vtt_headers(size))
-        content = path.read_text(encoding="utf-8")
-        return _vtt_response(episode, lang, key, content)
+        log_subtitle_stream_request(
+            episode, lang=lang, status=200, key=key, detail="local stream"
+        )
+        resp = send_file(
+            path,
+            mimetype="text/vtt",
+            conditional=True,
+            max_age=3600,
+        )
+        resp.headers.update(cors_headers_for_track())
+        return resp
 
     from modules.storage.storage_r2 import is_r2_configured, stream_object_from_r2
 
@@ -85,24 +94,16 @@ def stream_episode_subtitles(user, episode: Episode) -> Response:
     headers["Content-Type"] = "text/vtt; charset=utf-8"
     headers.update(cors_headers_for_track())
 
-    if request.method == "HEAD":
+    if request.method == "HEAD" or body is None:
         log_subtitle_stream_request(
             episode, lang=lang, status=status, key=key, detail="HEAD ok"
         )
         return Response(status=status, headers=headers)
 
-    chunks = []
-    for chunk in body:
-        chunks.append(chunk)
-    content = b"".join(chunks).decode("utf-8", errors="replace")
-    ok, msg = validate_vtt_content(content)
     log_subtitle_stream_request(
-        episode, lang=lang, status=status, key=key, detail=msg, vtt_ok=ok
+        episode, lang=lang, status=status, key=key, detail="R2 stream passthrough"
     )
-    if not ok:
-        logger.warning("[subtitles] invalid VTT episode=%s key=%s: %s", episode.id, key, msg)
-    headers.update(_vtt_headers(len(content.encode("utf-8"))))
-    return Response(content, status=status, headers=headers)
+    return Response(body, status=status, headers=headers, direct_passthrough=True)
 
 
 def _is_r2_key(key: str) -> bool:

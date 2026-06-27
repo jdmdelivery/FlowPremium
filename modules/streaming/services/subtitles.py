@@ -98,6 +98,8 @@ def _ffmpeg_bin() -> str:
 
 
 def _extract_audio_wav(video_path: Path, wav_path: Path) -> None:
+    import tempfile
+
     cmd = [
         _ffmpeg_bin(),
         "-y",
@@ -113,24 +115,38 @@ def _extract_audio_wav(video_path: Path, wav_path: Path) -> None:
         str(wav_path),
     ]
     proc: subprocess.Popen[str] | None = None
+    err_path: Path | None = None
     try:
-        proc = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-        stdout, stderr = proc.communicate(timeout=3600)
-        if proc.returncode != 0:
-            err = (stderr or stdout or "ffmpeg failed")[-500:]
+        with tempfile.NamedTemporaryFile(
+            mode="w+",
+            prefix="ffmpeg-audio-",
+            suffix=".log",
+            delete=False,
+            encoding="utf-8",
+            errors="replace",
+        ) as err_file:
+            err_path = Path(err_file.name)
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=err_file,
+                text=True,
+            )
+            proc.wait(timeout=3600)
+            returncode = proc.returncode
+            stderr = err_path.read_text(encoding="utf-8", errors="replace")
+        if returncode != 0:
+            err = (stderr or "ffmpeg failed")[-500:]
             raise RuntimeError(f"ffmpeg audio extract failed: {err}")
     finally:
         if proc is not None and proc.poll() is None:
             proc.kill()
             proc.wait(timeout=5)
+        if err_path and err_path.exists():
+            err_path.unlink(missing_ok=True)
 
 
-def _transcribe_audio(wav_path: Path, language: str, *, episode_id: int | None = None):
+def _transcribe_to_vtt(wav_path: Path, language: str, *, episode_id: int | None = None) -> str:
     from faster_whisper import WhisperModel
 
     from modules.streaming.services.memory_diagnostics import is_low_ram_instance
@@ -151,7 +167,7 @@ def _transcribe_audio(wav_path: Path, language: str, *, episode_id: int | None =
             language=language or None,
             vad_filter=True,
         )
-        return list(segments)
+        return segments_to_vtt(segments)
     finally:
         del model
         gc.collect()
@@ -290,13 +306,13 @@ def generate_subtitles_for_episode(
             video_path.unlink(missing_ok=True)
             gc.collect()
 
-        segments = _transcribe_audio(wav_path, source_lang, episode_id=episode_id)
+        segments = _transcribe_to_vtt(wav_path, source_lang, episode_id=episode_id)
         if wav_path.exists():
             wav_path.unlink()
         if owns_video_tmp and video_path.exists():
             video_path.unlink()
 
-        vtt_es = segments_to_vtt(segments)
+        vtt_es = segments
         if not vtt_es.strip() or vtt_es.strip() == "WEBVTT":
             raise RuntimeError("No speech detected for subtitles")
         vtt_ok, vtt_msg = validate_vtt_content(vtt_es)
