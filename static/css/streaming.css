@@ -792,7 +792,7 @@
 }
 
 .dramawave-home-main {
-    max-width: 720px;
+    max-width: 1280px;
     margin: 0 auto;
     padding: 24px 0 calc(4.5rem + env(safe-area-inset-bottom));
 }
@@ -822,7 +822,64 @@
 }
 
 .dramawave-home-search-row {
-    margin-bottom: 0.65rem;
+    max-width: 720px;
+    margin: 0 auto 0.85rem;
+    padding: 0 0.85rem;
+}
+
+.dramawave-search-pro {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: #252525;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    padding: 0.15rem 0.55rem 0.15rem 0;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.dramawave-search-pro.is-focused {
+    border-color: #ff2b45;
+    box-shadow: 0 0 0 3px rgba(255, 43, 69, 0.22);
+}
+.dramawave-search-pro .dramawave-search-icon {
+    position: static;
+    transform: none;
+    flex: 0 0 auto;
+    margin-left: 0.75rem;
+    color: rgba(255, 255, 255, 0.5);
+}
+.dramawave-search-input-pro {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border-radius: 0;
+    padding: 0.68rem 0.35rem 0.68rem 0.15rem;
+    font-size: 0.9rem;
+}
+.dramawave-search-input-pro::-webkit-search-cancel-button,
+.dramawave-search-input-pro::-webkit-search-decoration {
+    display: none;
+}
+.dramawave-search-clear {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border: none;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.75);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.dramawave-search-clear:hover {
+    background: rgba(255, 43, 69, 0.2);
+    color: #fff;
+}
+.dramawave-search-clear.hidden {
+    display: none;
 }
 
 .dramawave-search-wrap-full {
@@ -878,6 +935,27 @@
 
 .dramawave-continue-strip {
     padding: 0.65rem 0.85rem 0.25rem;
+}
+
+.dramawave-series-section {
+    padding: 0.25rem 0 0.5rem;
+}
+
+.dramawave-section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.35rem 0.85rem 0.5rem;
+}
+
+.dramawave-section-title {
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.88);
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
 }
 
 .dramawave-strip-title {
@@ -937,9 +1015,28 @@
 
 .dramawave-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.65rem 0.5rem;
-    padding: 0.55rem 0.85rem 1rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem 0.55rem;
+    padding: 0.25rem 0.85rem 1rem;
+}
+
+@media (min-width: 640px) {
+    .dramawave-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.85rem 0.65rem;
+    }
+}
+
+@media (min-width: 900px) {
+    .dramawave-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1200px) {
+    .dramawave-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
 }
 
 .dramawave-grid-card {

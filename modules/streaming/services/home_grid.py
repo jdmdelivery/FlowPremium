@@ -1,8 +1,18 @@
-"""Home grid cards (DramaWave-style 3-column layout)."""
+"""Home grid cards (DramaWave-style layout + search metadata)."""
 
 from __future__ import annotations
 
+import unicodedata
 from datetime import datetime, timedelta
+
+
+def normalize_text(text: str) -> str:
+    """Match client-side normalizeText (lowercase, strip accents)."""
+    if not text:
+        return ""
+    lowered = str(text).lower().strip()
+    decomposed = unicodedata.normalize("NFD", lowered)
+    return "".join(ch for ch in decomposed if unicodedata.category(ch) != "Mn")
 
 
 def _series_subtitle(item: dict) -> str:
@@ -17,6 +27,40 @@ def _series_subtitle(item: dict) -> str:
     if count == 1:
         return "1 episodio"
     return f"{count} episodios"
+
+
+def _search_keywords(item: dict, filters: list[str]) -> str:
+    series = item["series"]
+    badge = item.get("badge") or ""
+    keywords = [
+        series.title,
+        series.description or "",
+        _series_subtitle(item),
+        "drama",
+        badge,
+        "gratis free",
+        "premium vip exclusivo exclusive",
+        "nuevo new",
+        "popular trending",
+        "descubrir discover",
+    ]
+    if badge == "free":
+        keywords.append("gratis free")
+    elif badge == "premium":
+        keywords.append("premium vip exclusivo exclusive")
+    elif badge == "mixed":
+        keywords.append("gratis premium mixed")
+
+    if "new" in filters:
+        keywords.append("nuevo new")
+    if "exclusive" in filters:
+        keywords.append("exclusivo exclusive vip premium")
+    if "popular" in filters:
+        keywords.append("popular trending")
+    if "discover" in filters:
+        keywords.append("discubrir discover todas")
+
+    return normalize_text(" ".join(keywords))
 
 
 def prepare_home_grid(sections: dict) -> list[dict]:
@@ -45,7 +89,7 @@ def prepare_home_grid(sections: dict) -> list[dict]:
                 "show_new_badge": "new" in filters,
                 "show_exclusive_badge": item.get("badge") == "premium",
                 "show_free_badge": item.get("badge") == "free",
-                "search_text": f"{series.title} {series.description or ''}".lower(),
+                "search_text": _search_keywords(item, filters),
             }
         )
     return cards
