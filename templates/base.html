@@ -23,31 +23,7 @@
 </head>
 <body class="dark-theme {% block body_class %}{% endblock %}">
     {% block nav %}
-    <nav class="main-nav" id="main-nav">
-        <div class="nav-inner">
-            <a href="{{ url_for('streaming.index') }}" class="logo logo-neon">{{ t('app_name') }}</a>
-            <button type="button" class="nav-toggle" id="nav-toggle" aria-label="Menu">&#9776;</button>
-            <div class="nav-links" id="nav-links">
-                <a href="{{ url_for('streaming.index') }}">{{ t('streaming') }}</a>
-                <a href="{{ url_for('payments.payments_index') }}">{{ t('payment_methods') }}</a>
-                {% if current_user.is_authenticated %}
-                    <a href="{{ url_for('streaming.my_purchases') }}">{{ t('my_purchases') }}</a>
-                    {% if current_user.is_admin %}
-                        <a href="{{ url_for('streaming_admin.dashboard') }}">{{ t('admin') }}</a>
-                    {% endif %}
-                    <a href="{{ url_for('auth.logout') }}">{{ t('logout') }}</a>
-                {% else %}
-                    <a href="{{ url_for('auth.login') }}">{{ t('login') }}</a>
-                    <a href="{{ url_for('auth.register') }}" class="btn btn-sm btn-glow">{{ t('register') }}</a>
-                {% endif %}
-                <div class="locale-switch">
-                    <a href="{{ url_for('set_locale', locale='es') }}" class="{% if locale == 'es' %}active{% endif %}">ES</a>
-                    <span class="locale-divider">|</span>
-                    <a href="{{ url_for('set_locale', locale='en') }}" class="{% if locale == 'en' %}active{% endif %}">EN</a>
-                </div>
-            </div>
-        </div>
-    </nav>
+    {% include "partials/site_header.html" %}
     {% endblock %}
 
     {% with messages = get_flashed_messages(with_categories=true) %}

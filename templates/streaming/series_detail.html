@@ -1,15 +1,16 @@
 {% extends "base.html" %}
 {% block body_class %}series-episodes-page{% endblock %}
 {% block title %}{{ series.title }} - {{ t('app_name') }}{% endblock %}
+{% block main_class %}dramawave-episodes-main{% endblock %}
 
-{% block nav %}
-<header class="dramawave-episodes-header">
+{% block content %}
+<section class="dramawave-episodes-toolbar" aria-label="{{ t('search') }}">
     <a href="{{ url_for('streaming.index') }}" class="dramawave-back" aria-label="{{ t('back') }}">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
     </a>
-    <div class="dramawave-search-wrap">
+    <div class="dramawave-search-wrap dramawave-search-wrap-flex">
         <svg class="dramawave-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/>
             <path d="M20 20l-3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -19,15 +20,12 @@
                class="dramawave-search-input"
                placeholder="{{ series.title }}"
                autocomplete="off"
-               enterkeyhint="search">
+               enterkeyhint="search"
+               aria-label="{{ t('search') }}">
     </div>
-    <button type="button" class="dramawave-search-btn" id="episode-search-btn">{{ t('search') }}</button>
-</header>
-{% endblock %}
+    <button type="button" class="dramawave-search-btn" id="episode-search-btn" aria-label="{{ t('search') }}">{{ t('search') }}</button>
+</section>
 
-{% block main_class %}dramawave-episodes-main{% endblock %}
-
-{% block content %}
 <section class="dramawave-series-intro">
     <h1 class="dramawave-series-title">{{ series.title }}</h1>
     {% if series.description %}

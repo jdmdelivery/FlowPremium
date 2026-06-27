@@ -24,29 +24,57 @@
         }
     }
 
-    /* ── Nav scroll + mobile toggle ── */
+    /* ── Sticky nav scroll state ── */
     var nav = document.getElementById('main-nav');
-    var navToggle = document.getElementById('nav-toggle');
-    var navLinks = document.getElementById('nav-links');
-
     if (nav) {
         window.addEventListener('scroll', function () {
-            nav.classList.toggle('nav-scrolled', window.scrollY > 40);
+            nav.classList.toggle('nav-scrolled', window.scrollY > 8);
         }, { passive: true });
     }
 
-    if (navToggle && navLinks) {
+    /* ── Mobile nav drawer ── */
+    var navToggle = document.getElementById('nav-toggle');
+    var navDrawer = document.getElementById('nav-drawer');
+    var navBackdrop = document.getElementById('nav-backdrop');
+
+    function setDrawerOpen(open) {
+        if (!navDrawer || !navToggle) return;
+        navDrawer.classList.toggle('is-open', open);
+        navToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (navBackdrop) {
+            navBackdrop.hidden = !open;
+            navBackdrop.classList.toggle('is-visible', open);
+            navBackdrop.setAttribute('aria-hidden', open ? 'false' : 'true');
+        }
+        document.body.style.overflow = open ? 'hidden' : '';
+    }
+
+    function closeDrawer() {
+        setDrawerOpen(false);
+    }
+
+    if (navToggle && navDrawer) {
         navToggle.addEventListener('click', function () {
-            navLinks.classList.toggle('is-open');
+            var open = !navDrawer.classList.contains('is-open');
+            setDrawerOpen(open);
         });
-        navLinks.querySelectorAll('a').forEach(function (link) {
-            link.addEventListener('click', function () {
-                navLinks.classList.remove('is-open');
-            });
+
+        navDrawer.querySelectorAll('a').forEach(function (link) {
+            link.addEventListener('click', closeDrawer);
         });
     }
 
-    /* ── Horizontal row scroll arrows ── */
+    if (navBackdrop) {
+        navBackdrop.addEventListener('click', closeDrawer);
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            closeDrawer();
+        }
+    });
+
+    /* ── Horizontal row scroll arrows (legacy rows) ── */
     document.querySelectorAll('.row-scroll-wrap').forEach(function (wrap) {
         var track = wrap.querySelector('.row-track');
         var left = wrap.querySelector('.row-arrow-left');
@@ -66,7 +94,6 @@
             });
         }
 
-        /* Touch momentum hint */
         var isDown = false, startX, scrollLeft;
         track.addEventListener('mousedown', function (e) {
             isDown = true;
@@ -84,7 +111,6 @@
         });
     });
 
-    /* ── Stagger card animations ── */
     document.querySelectorAll('.content-row').forEach(function (row, ri) {
         row.style.animationDelay = (ri * 0.08) + 's';
         row.querySelectorAll('.premium-card, .continue-card').forEach(function (card, ci) {

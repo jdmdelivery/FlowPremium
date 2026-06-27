@@ -1,0 +1,75 @@
+{# Unified site header — include from base.html on every public page #}
+{% set _ep = request.endpoint or '' %}
+{% set nav_streaming_active = _ep.startswith('streaming.') and not _ep.startswith('streaming_admin.') %}
+{% set nav_payments_active = _ep.startswith('payments.') %}
+
+<nav class="main-nav site-header" id="main-nav" role="navigation" aria-label="{{ t('main_menu') }}">
+    <div class="nav-inner">
+        <a href="{{ url_for('streaming.index') }}" class="logo logo-neon nav-brand" aria-label="{{ t('app_name') }} — {{ t('home') }}">
+            {{ t('app_name') }}
+        </a>
+
+        <button type="button"
+                class="nav-toggle"
+                id="nav-toggle"
+                aria-label="{{ t('open_menu') }}"
+                aria-expanded="false"
+                aria-controls="nav-drawer">
+            <span class="nav-toggle-icon" aria-hidden="true">&#9776;</span>
+        </button>
+
+        <div class="nav-drawer" id="nav-drawer" aria-label="{{ t('main_menu') }}">
+            <div class="nav-drawer-primary">
+                <a href="{{ url_for('streaming.index') }}"
+                   class="nav-link {% if nav_streaming_active %}is-active{% endif %}"
+                   {% if nav_streaming_active %}aria-current="page"{% endif %}>
+                    {{ t('streaming') }}
+                </a>
+                <a href="{{ url_for('payments.payments_index') }}"
+                   class="nav-link {% if nav_payments_active %}is-active{% endif %}"
+                   {% if nav_payments_active %}aria-current="page"{% endif %}>
+                    {{ t('payment_methods') }}
+                </a>
+                {% if current_user.is_authenticated %}
+                    <a href="{{ url_for('streaming.my_purchases') }}" class="nav-link nav-link-muted">
+                        {{ t('my_purchases') }}
+                    </a>
+                    {% if current_user.is_admin %}
+                        <a href="{{ url_for('streaming_admin.dashboard') }}" class="nav-link nav-link-muted">
+                            {{ t('admin') }}
+                        </a>
+                    {% endif %}
+                    <a href="{{ url_for('auth.logout') }}" class="nav-link nav-link-muted">
+                        {{ t('logout') }}
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('auth.login') }}" class="nav-link nav-link-muted">
+                        {{ t('login') }}
+                    </a>
+                {% endif %}
+            </div>
+
+            <div class="nav-drawer-actions">
+                {% if not current_user.is_authenticated %}
+                    <a href="{{ url_for('auth.register') }}" class="btn btn-sm btn-glow nav-register-btn">
+                        {{ t('register') }}
+                    </a>
+                {% endif %}
+                <div class="locale-switch" role="group" aria-label="{{ t('language') }}">
+                    <a href="{{ url_for('set_locale', locale='es') }}"
+                       class="{% if locale == 'es' %}active{% endif %}"
+                       lang="es"
+                       hreflang="es"
+                       aria-label="Español">ES</a>
+                    <span class="locale-divider" aria-hidden="true">|</span>
+                    <a href="{{ url_for('set_locale', locale='en') }}"
+                       class="{% if locale == 'en' %}active{% endif %}"
+                       lang="en"
+                       hreflang="en"
+                       aria-label="English">EN</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>
+<div class="nav-backdrop" id="nav-backdrop" aria-hidden="true" hidden></div>

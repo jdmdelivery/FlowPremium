@@ -3,8 +3,8 @@
 {% block main_class %}dramawave-home-main{% endblock %}
 {% block title %}{{ t('streaming') }} - {{ t('app_name') }}{% endblock %}
 
-{% block nav %}
-<header class="dramawave-home-top">
+{% block content %}
+<section class="dramawave-streaming-toolbar" aria-label="{{ t('search') }}">
     <div class="dramawave-home-search-row">
         <div class="dramawave-search-wrap dramawave-search-wrap-full">
             <svg class="dramawave-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -16,7 +16,8 @@
                    class="dramawave-search-input"
                    placeholder="{{ t('search_series_placeholder') }}"
                    autocomplete="off"
-                   enterkeyhint="search">
+                   enterkeyhint="search"
+                   aria-label="{{ t('search_series_placeholder') }}">
         </div>
     </div>
 
@@ -30,10 +31,7 @@
         <button type="button" class="dramawave-filter-pill" data-filter="exclusive">{{ t('exclusive') }}</button>
         <button type="button" class="dramawave-filter-pill" data-filter="discover">{{ t('discover') }}</button>
     </div>
-</header>
-{% endblock %}
-
-{% block content %}
+</section>
 {% if continue_watching %}
 <section class="dramawave-continue-strip" aria-label="{{ t('continue_watching') }}">
     <h2 class="dramawave-strip-title">{{ t('continue_watching') }}</h2>

@@ -1,9 +1,10 @@
 /* ═══════════════════════════════════════
-   STREAMING HOME — Netflix-style
+   STREAMING HOME — Netflix-style (legacy rows)
    ═══════════════════════════════════════ */
 
-.streaming-home .main-nav { background: transparent; }
-.streaming-home .main-nav.nav-scrolled { background: rgba(5,5,5,0.95); }
+.dramawave-home-page .main-nav {
+    background: #000000;
+}
 
 /* Hero Banner */
 .netflix-hero {
@@ -499,22 +500,7 @@
 .dramawave-episodes-main {
     max-width: 640px;
     margin: 0 auto;
-    padding: 0 0 2rem;
-}
-
-.dramawave-episodes-header {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    align-items: center;
-    gap: 0.55rem;
-    padding: 0.65rem 0.85rem;
-    padding-top: max(0.65rem, env(safe-area-inset-top));
-    background: rgba(0, 0, 0, 0.92);
-    backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 24px 0 2rem;
 }
 
 .dramawave-back {
@@ -808,18 +794,31 @@
 .dramawave-home-main {
     max-width: 720px;
     margin: 0 auto;
-    padding: 0 0 calc(4.5rem + env(safe-area-inset-bottom));
+    padding: 24px 0 calc(4.5rem + env(safe-area-inset-bottom));
 }
 
-.dramawave-home-top {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    background: rgba(0, 0, 0, 0.94);
-    backdrop-filter: blur(12px);
-    padding: 0.65rem 0.85rem 0.5rem;
-    padding-top: max(0.65rem, env(safe-area-inset-top));
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+.dramawave-streaming-toolbar {
+    margin-bottom: 24px;
+    padding: 0 0.85rem;
+}
+
+.dramawave-home-top,
+.dramawave-episodes-header {
+    display: none;
+}
+
+.dramawave-episodes-toolbar {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 0.55rem;
+    margin-bottom: 24px;
+    padding: 0 0.85rem;
+}
+
+.dramawave-search-wrap-flex {
+    min-width: 0;
+    width: 100%;
 }
 
 .dramawave-home-search-row {
