@@ -1,62 +1,138 @@
 {% extends "base.html" %}
-{% from "streaming/_macros.html" import content_row with context %}
-{% block body_class %}streaming-home{% endblock %}
-{% block main_class %}streaming-main-full{% endblock %}
+{% block body_class %}dramawave-home-page{% endblock %}
+{% block main_class %}dramawave-home-main{% endblock %}
 {% block title %}{{ t('streaming') }} - {{ t('app_name') }}{% endblock %}
 
-{% block content %}
-<div id="page-skeleton" class="page-skeleton">
-    <div class="skeleton-hero"></div>
-    <div class="skeleton-row"></div>
-    <div class="skeleton-row"></div>
-</div>
-
-<div id="page-content" class="page-content hidden-until-loaded">
-    {% if featured %}
-    {% set hero_src = media_url(featured.hero_image_key) if featured.hero_image_key else series_hero_url(featured.series) %}
-    <section class="netflix-hero fade-in">
-        {% if hero_src %}
-        <div class="netflix-hero-bg" style="background-image: url('{{ hero_src }}')"></div>
-        {% else %}
-        <div class="netflix-hero-bg netflix-hero-bg-fallback"></div>
-        {% endif %}
-        <div class="netflix-hero-overlay"></div>
-        <div class="netflix-hero-vignette"></div>
-        <div class="netflix-hero-content">
-            <span class="hero-tag">{{ t('featured') }}</span>
-            <h1>{{ featured.series.title }}</h1>
-            <p>{{ featured.series.description or t('streaming') }}</p>
-            <div class="hero-meta">
-                <span>{{ featured.episode_count }} {{ t('episodes') }}</span>
-                {% if featured.badge == 'free' %}
-                <span class="hero-badge hero-badge-free">{{ t('free') }}</span>
-                {% elif featured.badge == 'premium' %}
-                <span class="hero-badge hero-badge-premium">{{ t('locked') }}</span>
-                {% endif %}
-            </div>
-            <div class="hero-actions">
-                <a href="{{ url_for('streaming.series_detail', series_id=featured.series.id) }}" class="btn btn-primary btn-glow btn-lg">
-                    <span>&#9654;</span> {{ t('explore_now') }}
-                </a>
-            </div>
+{% block nav %}
+<header class="dramawave-home-top">
+    <div class="dramawave-home-search-row">
+        <div class="dramawave-search-wrap dramawave-search-wrap-full">
+            <svg class="dramawave-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/>
+                <path d="M20 20l-3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <input type="search"
+                   id="home-search"
+                   class="dramawave-search-input"
+                   placeholder="{{ t('search_series_placeholder') }}"
+                   autocomplete="off"
+                   enterkeyhint="search">
         </div>
-    </section>
-    {% endif %}
-
-    {% with slot='home-mid' %}
-    {% include "partials/adsense_slot.html" %}
-    {% endwith %}
-
-    <div class="streaming-rows">
-        {{ content_row(t('continue_watching'), continue_watching, 'continue') }}
-        {{ content_row(t('trending'), trending) }}
-        {{ content_row(t('recently_added'), recently_added) }}
-        {{ content_row(t('top_premium'), top_premium) }}
-        {{ content_row(t('all_series'), all_cards) }}
     </div>
 
-    {% if not all_cards %}
-    <p class="empty-state fade-in">{{ t('no_series') }}</p>
-    {% endif %}
+    <nav class="dramawave-home-tabs" aria-label="{{ t('categories') }}">
+        <span class="dramawave-home-tab is-active">{{ t('drama') }}</span>
+    </nav>
+
+    <div class="dramawave-home-filters" id="home-filters">
+        <button type="button" class="dramawave-filter-pill is-active" data-filter="popular">{{ t('popular') }}</button>
+        <button type="button" class="dramawave-filter-pill" data-filter="new">{{ t('new') }}</button>
+        <button type="button" class="dramawave-filter-pill" data-filter="exclusive">{{ t('exclusive') }}</button>
+        <button type="button" class="dramawave-filter-pill" data-filter="discover">{{ t('discover') }}</button>
+    </div>
+</header>
+{% endblock %}
+
+{% block content %}
+{% if continue_watching %}
+<section class="dramawave-continue-strip" aria-label="{{ t('continue_watching') }}">
+    <h2 class="dramawave-strip-title">{{ t('continue_watching') }}</h2>
+    <div class="dramawave-continue-scroll">
+        {% for item in continue_watching %}
+        <a href="{{ url_for('streaming.watch', episode_id=item.episode.id) }}" class="dramawave-continue-item">
+            {% set thumb_src = episode_thumbnail_url(item.episode) or series_card_url(item.series) %}
+            <div class="dramawave-continue-thumb">
+                {% if thumb_src %}
+                <img src="{{ thumb_src }}" alt="" loading="lazy">
+                {% endif %}
+                <span class="dramawave-continue-progress" style="width: {{ item.progress_pct }}%"></span>
+            </div>
+            <span class="dramawave-continue-label">{{ item.episode.title }}</span>
+        </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+{% with slot='home-mid' %}
+{% include "partials/adsense_slot.html" %}
+{% endwith %}
+
+<div class="dramawave-grid" id="series-grid">
+    {% for item in grid_cards %}
+    <a href="{{ url_for('streaming.series_detail', series_id=item.series.id) }}"
+       class="dramawave-grid-card"
+       data-search="{{ item.search_text }}"
+       data-filters="{{ item.filters|join(' ') }}">
+        <div class="dramawave-grid-cover">
+            {% if item.show_new_badge %}
+            <span class="dramawave-poster-badge dramawave-poster-badge-new">{{ t('new') }}</span>
+            {% endif %}
+            {% if item.show_free_badge %}
+            <span class="dramawave-poster-badge dramawave-poster-badge-free">{{ t('free') }}</span>
+            {% elif item.badge == 'mixed' %}
+            <span class="dramawave-poster-badge dramawave-poster-badge-mixed">{{ t('free') }}+</span>
+            {% endif %}
+            {% set card_src = media_url(item.card_image_key) if item.card_image_key else series_card_url(item.series) %}
+            {% if card_src %}
+            <img src="{{ card_src }}" alt="{{ item.series.title }}" loading="lazy"
+                 onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+            <div class="dramawave-grid-placeholder" hidden><span>{{ item.series.title }}</span></div>
+            {% else %}
+            <div class="dramawave-grid-placeholder"><span>{{ item.series.title }}</span></div>
+            {% endif %}
+            {% if item.show_exclusive_badge %}
+            <span class="dramawave-exclusive-chip">
+                <span class="dramawave-exclusive-play">&#9654;</span> {{ t('exclusive') }}
+            </span>
+            {% endif %}
+        </div>
+        <h3 class="dramawave-grid-title">{{ item.series.title }}</h3>
+        <p class="dramawave-grid-subtitle">{{ item.subtitle }}</p>
+    </a>
+    {% else %}
+    <p class="dramawave-empty dramawave-grid-empty">{{ t('no_series') }}</p>
+    {% endfor %}
 </div>
+
+<p class="dramawave-no-results hidden" id="home-no-results">{{ t('no_series_found') }}</p>
+
+<nav class="dramawave-bottom-nav" aria-label="{{ t('main_menu') }}">
+    <a href="{{ url_for('streaming.index') }}" class="dramawave-bottom-item is-active">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M4 10.5L12 4l8 6.5V19a1 1 0 01-1 1h-5v-6H10v6H5a1 1 0 01-1-1v-8.5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+        </svg>
+        <span>{{ t('home') }}</span>
+    </a>
+    <a href="{{ url_for('streaming.index') }}?filter=discover" class="dramawave-bottom-item">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="4" y="4" width="16" height="16" rx="3" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M10 9.5v6l5-3-5-3z" fill="currentColor"/>
+        </svg>
+        <span>{{ t('for_you') }}</span>
+    </a>
+    <a href="{{ url_for('payments.payments_index') }}" class="dramawave-bottom-item">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 3l2.4 4.8L20 9l-4 3.9.9 5.6L12 16.8 7.1 18.5 8 12.9 4 9l5.6-1.2L12 3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+        </svg>
+        <span>{{ t('vip') }}</span>
+    </a>
+    <a href="{{ url_for('streaming.my_purchases') if current_user.is_authenticated else url_for('auth.login') }}" class="dramawave-bottom-item">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M6 4h12v16l-6-4-6 4V4z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+        </svg>
+        <span>{{ t('my_list') }}</span>
+    </a>
+    <a href="{{ url_for('auth.login') if not current_user.is_authenticated else url_for('streaming.my_purchases') }}" class="dramawave-bottom-item">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M5 19c0-3.3 3.1-5 7-5s7 1.7 7 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <span>{{ t('profile') }}</span>
+    </a>
+</nav>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/home-grid.js') }}" defer></script>
 {% endblock %}

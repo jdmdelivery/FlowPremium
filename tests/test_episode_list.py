@@ -33,6 +33,5 @@ def test_build_series_episode_cards(app, sample_content):
         assert len(cards) == 1
         card = cards[0]
         assert card["rank"] == 1
-        assert card["views_label"]
         assert "free" in card["tags"]
         assert card["href"].endswith(f"/watch/{ep_id}")

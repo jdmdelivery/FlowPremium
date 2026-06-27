@@ -794,6 +794,314 @@
 }
 
 /* ═══════════════════════════════════════
+   DRAMA WAVE HOME GRID
+   ═══════════════════════════════════════ */
+
+.dramawave-home-page {
+    background: #000;
+}
+
+.dramawave-home-page .site-footer {
+    display: none;
+}
+
+.dramawave-home-main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 0 0 calc(4.5rem + env(safe-area-inset-bottom));
+}
+
+.dramawave-home-top {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(0, 0, 0, 0.94);
+    backdrop-filter: blur(12px);
+    padding: 0.65rem 0.85rem 0.5rem;
+    padding-top: max(0.65rem, env(safe-area-inset-top));
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.dramawave-home-search-row {
+    margin-bottom: 0.65rem;
+}
+
+.dramawave-search-wrap-full {
+    width: 100%;
+}
+
+.dramawave-home-tabs {
+    display: flex;
+    gap: 1.25rem;
+    margin-bottom: 0.55rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.dramawave-home-tabs::-webkit-scrollbar { display: none; }
+
+.dramawave-home-tab {
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.45);
+    white-space: nowrap;
+    letter-spacing: 0.04em;
+}
+.dramawave-home-tab.is-active {
+    color: #fff;
+    font-weight: 800;
+}
+
+.dramawave-home-filters {
+    display: flex;
+    gap: 0.45rem;
+    overflow-x: auto;
+    padding-bottom: 0.15rem;
+    scrollbar-width: none;
+}
+.dramawave-home-filters::-webkit-scrollbar { display: none; }
+
+.dramawave-filter-pill {
+    border: none;
+    border-radius: 999px;
+    background: #2a2a2a;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    padding: 0.38rem 0.7rem;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.dramawave-filter-pill.is-active {
+    background: #3a3a3a;
+    color: #fff;
+}
+
+.dramawave-continue-strip {
+    padding: 0.65rem 0.85rem 0.25rem;
+}
+
+.dramawave-strip-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.65);
+    margin: 0 0 0.45rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.dramawave-continue-scroll {
+    display: flex;
+    gap: 0.55rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.dramawave-continue-scroll::-webkit-scrollbar { display: none; }
+
+.dramawave-continue-item {
+    flex: 0 0 88px;
+    text-decoration: none;
+    color: inherit;
+}
+
+.dramawave-continue-thumb {
+    position: relative;
+    aspect-ratio: 2 / 3;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #1a1a1a;
+}
+.dramawave-continue-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.dramawave-continue-progress {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+    background: #e50914;
+}
+
+.dramawave-continue-label {
+    display: block;
+    font-size: 0.62rem;
+    color: #a9a9a9;
+    margin-top: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dramawave-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.65rem 0.5rem;
+    padding: 0.55rem 0.85rem 1rem;
+}
+
+.dramawave-grid-card {
+    text-decoration: none;
+    color: inherit;
+    min-width: 0;
+}
+.dramawave-grid-card.hidden {
+    display: none;
+}
+
+.dramawave-grid-cover {
+    position: relative;
+    aspect-ratio: 2 / 3;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #161616;
+    margin-bottom: 0.4rem;
+}
+
+.dramawave-grid-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.dramawave-grid-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.35rem;
+    text-align: center;
+    font-size: 0.58rem;
+    color: rgba(255, 255, 255, 0.5);
+    background: linear-gradient(145deg, #222, #111);
+}
+
+.dramawave-poster-badge {
+    position: absolute;
+    top: 0.3rem;
+    right: 0.3rem;
+    z-index: 2;
+    font-size: 0.52rem;
+    font-weight: 800;
+    padding: 0.12rem 0.32rem;
+    border-radius: 4px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+.dramawave-poster-badge-new {
+    background: #2f6bff;
+    color: #fff;
+}
+.dramawave-poster-badge-free {
+    background: rgba(70, 211, 105, 0.9);
+    color: #04210f;
+    right: auto;
+    left: 0.3rem;
+}
+.dramawave-poster-badge-mixed {
+    background: rgba(255, 193, 7, 0.92);
+    color: #1a1200;
+    right: auto;
+    left: 0.3rem;
+}
+
+.dramawave-exclusive-chip {
+    position: absolute;
+    left: 50%;
+    bottom: 0.35rem;
+    transform: translateX(-50%);
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    background: rgba(0, 0, 0, 0.62);
+    color: #fff;
+    font-size: 0.52rem;
+    font-weight: 700;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.dramawave-exclusive-play {
+    color: #e50914;
+    font-size: 0.55rem;
+}
+
+.dramawave-grid-title {
+    margin: 0;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.dramawave-grid-subtitle {
+    margin: 0.15rem 0 0;
+    font-size: 0.62rem;
+    line-height: 1.3;
+    color: #8f8f8f;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dramawave-grid-empty {
+    grid-column: 1 / -1;
+}
+
+.dramawave-bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 120;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0;
+    background: rgba(8, 8, 8, 0.96);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 0.35rem 0.25rem calc(0.35rem + env(safe-area-inset-bottom));
+}
+
+.dramawave-bottom-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.15rem;
+    text-decoration: none;
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 0.58rem;
+    font-weight: 600;
+    padding: 0.2rem 0;
+}
+.dramawave-bottom-item svg {
+    display: block;
+}
+.dramawave-bottom-item.is-active {
+    color: #ff4d6d;
+}
+
+.dramawave-ep-title-row {
+    display: block;
+}
+
+.dramawave-views {
+    display: none;
+}
+
+/* ═══════════════════════════════════════
    CINEMA PLAYER
    ═══════════════════════════════════════ */
 

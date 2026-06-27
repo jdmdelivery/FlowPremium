@@ -18,8 +18,11 @@ streaming_bp = Blueprint("streaming", __name__, url_prefix="/streaming")
 
 @streaming_bp.route("/")
 def index():
+    from modules.streaming.services.home_grid import prepare_home_grid
+
     sections = get_home_sections(current_user)
-    return render_template("streaming/index.html", **sections)
+    grid_cards = prepare_home_grid(sections)
+    return render_template("streaming/index.html", grid_cards=grid_cards, **sections)
 
 
 @streaming_bp.route("/serie/<int:series_id>")

@@ -107,7 +107,6 @@ def build_series_episode_cards(
                 "episode": episode,
                 "status": status,
                 "rank": rank,
-                "views_label": _format_views(engagement),
                 "is_hot": engagement >= hot_threshold and rank <= 10,
                 "tags": _episode_tags(episode, status),
                 "href": _episode_href(episode, status, user),
