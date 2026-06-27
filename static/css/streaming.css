@@ -484,6 +484,310 @@
 
 .inline-form { display: inline; }
 
+/* ═══════════════════════════════════════
+   DRAMA WAVE EPISODE LIST
+   ═══════════════════════════════════════ */
+
+.series-episodes-page {
+    background: #000;
+}
+
+.series-episodes-page .site-footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dramawave-episodes-main {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 0 0 2rem;
+}
+
+.dramawave-episodes-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.65rem 0.85rem;
+    padding-top: max(0.65rem, env(safe-area-inset-top));
+    background: rgba(0, 0, 0, 0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dramawave-back {
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    transition: background 0.2s;
+}
+.dramawave-back:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+.dramawave-search-wrap {
+    position: relative;
+    min-width: 0;
+}
+
+.dramawave-search-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: rgba(255, 255, 255, 0.45);
+    pointer-events: none;
+}
+
+.dramawave-search-input {
+    width: 100%;
+    border: none;
+    border-radius: 999px;
+    background: #2a2a2a;
+    color: #fff;
+    font-size: 0.82rem;
+    padding: 0.62rem 0.9rem 0.62rem 2.15rem;
+    outline: none;
+}
+.dramawave-search-input::placeholder {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.dramawave-search-btn {
+    border: none;
+    background: transparent;
+    color: #e50914;
+    font-size: 0.88rem;
+    font-weight: 600;
+    padding: 0.35rem 0.15rem;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.dramawave-series-intro {
+    padding: 0.85rem 1rem 0.25rem;
+}
+
+.dramawave-series-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0 0 0.35rem;
+    line-height: 1.3;
+}
+
+.dramawave-series-desc {
+    font-size: 0.78rem;
+    color: #a9a9a9;
+    line-height: 1.45;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.dramawave-episodes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.dramawave-episode-card {
+    display: grid;
+    grid-template-columns: 92px 1fr;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    text-decoration: none;
+    color: inherit;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    transition: background 0.2s;
+}
+.dramawave-episode-card:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+.dramawave-episode-card.hidden {
+    display: none;
+}
+
+.dramawave-ep-thumb {
+    position: relative;
+    aspect-ratio: 2 / 3;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #1a1a1a;
+    flex-shrink: 0;
+}
+
+.dramawave-ep-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.dramawave-ep-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.35rem;
+    text-align: center;
+    font-size: 0.62rem;
+    color: rgba(255, 255, 255, 0.55);
+    background: linear-gradient(145deg, #1f1f1f, #111);
+}
+
+.dramawave-rank {
+    position: absolute;
+    top: 0.35rem;
+    left: 0.35rem;
+    z-index: 2;
+    min-width: 1.35rem;
+    height: 1.35rem;
+    padding: 0 0.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.88);
+    color: #111;
+    font-size: 0.72rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.dramawave-hot {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.35rem;
+    z-index: 2;
+    background: #e50914;
+    color: #fff;
+    font-size: 0.58rem;
+    font-weight: 700;
+    padding: 0.15rem 0.35rem;
+    border-radius: 4px;
+    letter-spacing: 0.02em;
+}
+
+.dramawave-lock {
+    position: absolute;
+    bottom: 0.35rem;
+    right: 0.35rem;
+    z-index: 2;
+    font-size: 0.75rem;
+    background: rgba(0, 0, 0, 0.55);
+    border-radius: 4px;
+    padding: 0.1rem 0.25rem;
+}
+
+.dramawave-ep-body {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.dramawave-ep-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.dramawave-ep-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+    line-height: 1.25;
+    flex: 1;
+    min-width: 0;
+}
+
+.dramawave-views {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    color: #e50914;
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.dramawave-ep-desc {
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: #a9a9a9;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.dramawave-ep-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: auto;
+    padding-top: 0.15rem;
+}
+
+.dramawave-tag {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 999px;
+    background: #2a2a2a;
+    color: #c8c8c8;
+    font-size: 0.68rem;
+    font-weight: 500;
+    line-height: 1.2;
+}
+
+.dramawave-tag-accent {
+    background: rgba(229, 9, 20, 0.18);
+    color: #ff8a8a;
+}
+
+.dramawave-empty,
+.dramawave-no-results {
+    text-align: center;
+    color: #a9a9a9;
+    padding: 2.5rem 1rem;
+    font-size: 0.9rem;
+}
+
+.dramawave-no-results.hidden {
+    display: none;
+}
+
+@media (min-width: 768px) {
+    .dramawave-episode-card {
+        grid-template-columns: 108px 1fr;
+        gap: 1rem;
+        padding: 1rem 1.25rem;
+    }
+
+    .dramawave-ep-title {
+        font-size: 1.02rem;
+    }
+
+    .dramawave-ep-desc {
+        -webkit-line-clamp: 2;
+    }
+}
+
 @media (max-width: 640px) {
     .episode-row { grid-template-columns: 80px 1fr; }
     .episode-actions { grid-column: 1 / -1; }

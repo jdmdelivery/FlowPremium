@@ -1,76 +1,112 @@
 {% extends "base.html" %}
-{% block body_class %}series-detail-page{% endblock %}
+{% block body_class %}series-episodes-page{% endblock %}
 {% block title %}{{ series.title }} - {{ t('app_name') }}{% endblock %}
-{% block content %}
-{% set hero_src = series_hero_url(series) %}
-<section class="series-hero fade-in{% if not hero_src %} series-hero-fallback{% endif %}"
-    {% if hero_src %}style="background-image: url('{{ hero_src }}')"{% endif %}>
-    <div class="series-hero-content">
-        <a href="{{ url_for('streaming.index') }}" class="back-link">&larr; {{ t('back') }}</a>
-        <h1>{{ series.title }}</h1>
-        <p>{{ series.description }}</p>
+
+{% block nav %}
+<header class="dramawave-episodes-header">
+    <a href="{{ url_for('streaming.index') }}" class="dramawave-back" aria-label="{{ t('back') }}">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </a>
+    <div class="dramawave-search-wrap">
+        <svg class="dramawave-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/>
+            <path d="M20 20l-3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <input type="search"
+               id="episode-search"
+               class="dramawave-search-input"
+               placeholder="{{ series.title }}"
+               autocomplete="off"
+               enterkeyhint="search">
     </div>
+    <button type="button" class="dramawave-search-btn" id="episode-search-btn">{{ t('search') }}</button>
+</header>
+{% endblock %}
+
+{% block main_class %}dramawave-episodes-main{% endblock %}
+
+{% block content %}
+<section class="dramawave-series-intro">
+    <h1 class="dramawave-series-title">{{ series.title }}</h1>
+    {% if series.description %}
+    <p class="dramawave-series-desc">{{ series.description }}</p>
+    {% endif %}
 </section>
 
 {% with slot='series-mid' %}
 {% include "partials/adsense_slot.html" %}
 {% endwith %}
 
-{% for season in seasons %}
-<section class="season-block fade-in-up" style="animation-delay: {{ loop.index0 * 0.06 }}s">
-    <h2>{{ t('season') }} {{ season.season_number }} · {{ season.title }}</h2>
-    <div class="episodes-list">
-        {% for item in episodes_by_season[season.id] %}
-        {% set ep = item.episode %}
-        {% set status = item.status %}
-        <div class="episode-row">
-            <div class="episode-thumb">
-                {% set thumb_src = episode_thumbnail_url(ep) %}
-                {% if thumb_src %}
-                <img src="{{ thumb_src }}" alt="" loading="lazy"
-                     onerror="this.hidden=true;this.nextElementSibling.hidden=false">
-                <div class="placeholder-cover placeholder-cover-sm" hidden>
-                    <span class="placeholder-title">{{ ep.title }}</span>
-                </div>
-                {% else %}
-                <div class="placeholder-cover placeholder-cover-sm">
-                    <span class="placeholder-title">{{ ep.title }}</span>
-                </div>
-                {% endif %}
+<div class="dramawave-episodes-list" id="episodes-list">
+    {% for card in episode_cards %}
+    {% set ep = card.episode %}
+    <a href="{{ card.href }}"
+       class="dramawave-episode-card"
+       data-search="{{ card.search_text }}">
+        <div class="dramawave-ep-thumb">
+            <span class="dramawave-rank">{{ card.rank }}</span>
+            {% if card.is_hot %}
+            <span class="dramawave-hot">{{ t('hot') }}</span>
+            {% endif %}
+            {% set thumb_src = episode_thumbnail_url(ep) %}
+            {% if thumb_src %}
+            <img src="{{ thumb_src }}" alt="" loading="lazy"
+                 onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+            <div class="dramawave-ep-placeholder" hidden>
+                <span>{{ ep.title }}</span>
             </div>
-            <div class="episode-info">
-                <h4>{{ ep.title }}</h4>
-                <p>{{ ep.description }}</p>
-                <span class="duration">{{ ep.duration_formatted }}</span>
+            {% else %}
+            <div class="dramawave-ep-placeholder">
+                <span>{{ ep.title }}</span>
             </div>
-            <div class="episode-actions">
-                {% if status == 'free' %}
-                <span class="badge badge-free">{{ t('free') }}</span>
-                {% if current_user.is_authenticated %}
-                <a href="{{ url_for('streaming.watch', episode_id=ep.id) }}" class="btn btn-primary btn-glow">{{ t('watch_now') }}</a>
-                {% else %}
-                <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-glow">{{ t('watch_now') }}</a>
-                {% endif %}
-                {% elif status == 'purchased' %}
-                <span class="badge badge-purchased">{{ t('purchased') }}</span>
-                <a href="{{ url_for('streaming.watch', episode_id=ep.id) }}" class="btn btn-primary btn-glow">{{ t('watch_now') }}</a>
-                {% elif status == 'subscribed' %}
-                <span class="badge badge-sub">{{ t('subscribed') }}</span>
-                <a href="{{ url_for('streaming.watch', episode_id=ep.id) }}" class="btn btn-primary btn-glow">{{ t('watch_now') }}</a>
-                {% else %}
-                <span class="badge badge-locked">{{ t('locked') }} · ${{ "%.2f"|format(ep.price) }}</span>
-                {% if current_user.is_authenticated %}
-                <form method="post" action="{{ url_for('streaming.purchase', episode_id=ep.id) }}" class="inline-form">
-                    <button type="submit" class="btn btn-accent">{{ t('buy_episode') }}</button>
-                </form>
-                {% else %}
-                <a href="{{ url_for('auth.login') }}" class="btn btn-accent">{{ t('buy_episode') }}</a>
-                {% endif %}
+            {% endif %}
+            {% if card.status == 'locked' %}
+            <span class="dramawave-lock" aria-hidden="true">&#128274;</span>
+            {% endif %}
+        </div>
+        <div class="dramawave-ep-body">
+            <div class="dramawave-ep-title-row">
+                <h3 class="dramawave-ep-title">{{ ep.title }}</h3>
+                <span class="dramawave-views">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M12 5c-5.5 0-9.5 5-9.5 7s4 7 9.5 7 9.5-5 9.5-7-4-7-9.5-7z" stroke="currentColor" stroke-width="1.8"/>
+                        <circle cx="12" cy="12" r="2.5" fill="currentColor"/>
+                    </svg>
+                    {{ card.views_label }}
+                </span>
+            </div>
+            <p class="dramawave-ep-desc">
+                {{ ep.description or series.description or '' }}
+            </p>
+            <div class="dramawave-ep-tags">
+                {% for tag in card.tags %}
+                <span class="dramawave-tag">
+                    {% if tag == 'free' %}{{ t('free') }}
+                    {% elif tag == 'premium' %}{{ t('premium') }}
+                    {% elif tag == 'hd' %}HD
+                    {% elif tag == 'new' %}{{ t('new') }}
+                    {% else %}{{ tag }}
+                    {% endif %}
+                </span>
+                {% endfor %}
+                {% if card.status == 'purchased' %}
+                <span class="dramawave-tag dramawave-tag-accent">{{ t('purchased') }}</span>
+                {% elif card.status == 'subscribed' %}
+                <span class="dramawave-tag dramawave-tag-accent">{{ t('subscribed') }}</span>
                 {% endif %}
             </div>
         </div>
-        {% endfor %}
-    </div>
-</section>
-{% endfor %}
+    </a>
+    {% else %}
+    <p class="dramawave-empty">{{ t('no_episodes') }}</p>
+    {% endfor %}
+</div>
+
+<p class="dramawave-no-results hidden" id="episodes-no-results">{{ t('no_episodes_found') }}</p>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/series-episodes.js') }}" defer></script>
 {% endblock %}

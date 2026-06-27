@@ -11,6 +11,7 @@ from modules.streaming.services.playback_manifest import build_playback_manifest
 from modules.streaming.services.subtitle_diagnostics import log_episode_subtitle_state
 from modules.streaming.services.subtitle_manifest import build_subtitle_manifest
 from modules.streaming.services.home import get_home_sections, get_next_episode
+from modules.streaming.services.episode_list import build_series_episode_cards
 
 streaming_bp = Blueprint("streaming", __name__, url_prefix="/streaming")
 
@@ -43,11 +44,13 @@ def series_detail(series_id):
             }
             for ep in eps
         ]
+    episode_cards = build_series_episode_cards(current_user, seasons, episodes_by_season)
     return render_template(
         "streaming/series_detail.html",
         series=series,
         seasons=seasons,
         episodes_by_season=episodes_by_season,
+        episode_cards=episode_cards,
     )
 
 
